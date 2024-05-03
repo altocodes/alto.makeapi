@@ -1,0 +1,2 @@
+<?php
+$MESS["ALTO_MAKEAPI_SERVICE_EXCEPTION_ELEMENT_NOT_FOUND"] = "Элемент не найден";
