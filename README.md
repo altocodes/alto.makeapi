@@ -34,7 +34,7 @@ RewriteRule ^(.*)$ /bitrix/routing_index.php [L]
 'routing' => [
     'value' => [
         'config' => [
-            'strapi.php'
+            'makeapi.php'
         ]
     ]
 ]
