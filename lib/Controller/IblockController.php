@@ -2,90 +2,71 @@
 
 namespace Alto\MakeApi\Controller;
 
-use Exception;
+use Alto\MakeApi\Repository\IblockRepository;
+use Bitrix\Main\ArgumentException;
+use Bitrix\Main\Engine\Action;
+use Bitrix\Main\ObjectPropertyException;
+use Bitrix\Main\SystemException;
 use Alto\MakeApi\Dto\Iblock\IblockDto;
 use Alto\MakeApi\Dto\ListDto;
 use Alto\MakeApi\Service\IblockService;
-use Bitrix\Main\Engine\ActionFilter;
-use Bitrix\Main\Request;
 
-// TODO: сейчас код ответа всегда 200, подумать как лучше управлять кодом ответа
 class IblockController extends BaseController
 {
-    private $service;
+    private IblockService $service;
 
-    public function __construct(Request $request = null)
+    protected function processBeforeAction(Action $action)
     {
-        parent::__construct($request);
+        $this->service = new IblockService($this->request->get('iblock_code'));
 
-        try {
-            $this->service = new IblockService($this->request->get('iblock_code'));
-        } catch (Exception $e) {
-            $this->setError($e->getMessage());
-        }
-    }
-
-    public function getDefaultPreFilters(): array
-    {
-        return [
-            new ActionFilter\HttpMethod(
-                [ActionFilter\HttpMethod::METHOD_GET]
-            ),
-            new ActionFilter\Csrf(false),
-        ];
+        return parent::processBeforeAction($action);
     }
 
     /**
      * Получение информации об инфоблоке
+     *
      * @return IblockDto
      */
     public function infoAction(): IblockDto
     {
-        $response = [];
-
-        try {
-            $response = $this->service->getInfo();
-        } catch (Exception $e) {
-            $this->setError($e->getMessage());
-        }
-
-        return $response;
+        return $this->service->getInfo();
     }
 
     /**
      * Получение списка элементов
+     *
      * @return ListDto
+     * @throws ArgumentException
+     * @throws ObjectPropertyException
+     * @throws SystemException
      */
     public function listAction(): ListDto
     {
+        // TODO: валидация
         $filter = $this->request->get('filter') ?? [];
         $page = $this->request->get('page') ?? 1;
         $limit = $this->request->get('limit') ?? 10;
-        $response = [];
+        $sort = $this->request->get('sort') ?? IblockRepository::SORT_BY_DEFAULT;
+        $order = $this->request->get('order') ?? IblockRepository::SORT_ORDER_DEFAULT;
 
-        try {
-            $response = $this->service->getList($filter, $page, $limit);
-        } catch (Exception $e) {
-            $this->setError($e->getMessage());
-        }
-
-        return $response;
+        return $this->service->getList($filter, $page, $limit, $sort, $order);
     }
 
     /**
      * Получение информации об элементе
-     * @return array
+     * @return ElementDetailDto
+     *
+     * @throws ArgumentException
+     * @throws ObjectPropertyException
+     * @throws SystemException
      */
     public function elementAction()
     {
-        $response = [];
-
-        try {
-            $response = $this->service->getElementById($this->request->get('element_id'));
-        } catch (Exception $e) {
-            $this->setError($e->getMessage());
+        // TODO: валидация
+        if ($element_code = $this->request->get('element_code')) {
+            return $this->service->getElementByCode($element_code);
+        } elseif ($element_id = $this->request->get('element_id')) {
+            return $this->service->getElementById($element_id);
         }
-
-        return $response;
     }
 }

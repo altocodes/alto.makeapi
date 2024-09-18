@@ -3,157 +3,111 @@
 namespace Alto\MakeApi\Repository;
 
 
-use Alto\MakeApi\Dto\Iblock\ElementDto;
-use Alto\MakeApi\Dto\Iblock\IblockDto;
-use Alto\MakeApi\Dto\Iblock\Property\PropertyValueDto;
+use Alto\MakeApi\Entity\QueryBuilder;
 use Alto\MakeApi\Exception\RepositoryException;
 use Alto\MakeApi\Helper\IblockHelper;
 use Bitrix\Highloadblock\HighloadBlockTable;
 use Bitrix\Iblock\IblockTable;
-use Bitrix\Iblock\ORM\ValueStorage;
 use Bitrix\Iblock\PropertyEnumerationTable;
 use Bitrix\Iblock\PropertyTable;
 use Bitrix\Main\ArgumentException;
 use Bitrix\Main\Loader;
 use Bitrix\Main\Localization\Loc;
 use Bitrix\Main\ObjectPropertyException;
-use Bitrix\Main\ORM\Entity;
-use Bitrix\Main\ORM\Objectify\Collection;
 use Bitrix\Main\SystemException;
 
-class IblockRepository
+class IblockRepository extends QueryBuilder
 {
-    public $properties;
+    const SORT_BY_DEFAULT = 'ID';
+    const SORT_ORDER_DEFAULT = 'ASC';
+    const CACHE_TIME = 36000;
 
-    private Entity $entity;
-    private $dataClass;
+    protected array $properties;
 
     public function __construct(string $code)
     {
         if (!Loader::includeModule('iblock')) {
-            throw new RepositoryException(Loc::getMessage('ALTO_STRAPI_REPOSITORY_EXCEPTION_MODULES_NOT_INSTALL'));
+            throw new RepositoryException(Loc::getMessage('ALTO_MAKEAPI_REPOSITORY_EXCEPTION_MODULES_NOT_INSTALL'));
         }
 
-        if (!$this->entity = IblockTable::compileEntity($code)) {
-            throw new RepositoryException(Loc::getMessage('ALTO_STRAPI_REPOSITORY_EXCEPTION_COMPILATION_ERROR', ['#API_CODE#' => $code]));
+        if (!$entity = IblockTable::compileEntity($code)) {
+            throw new RepositoryException(Loc::getMessage('ALTO_MAKEAPI_REPOSITORY_EXCEPTION_COMPILATION_ERROR', ['#API_CODE#' => $code]));
         }
 
-        $this->dataClass = $this->entity->getDataClass();
+        parent::__construct($entity);
+
         $this->properties = $this->getProperties();
     }
 
     /**
-     * Получение информации об инфоблоке и его свойствах
-     * @return IblockDto
+     * Получение ID инфоблока
+     * @return mixed
      */
-    public function getIblock(): IblockDto
+    public function getIblockId(): mixed
+    {
+        return $this->entity->getIblock()->getId();
+    }
+
+    /**
+     * Получение информации об инфоблоке и его свойствах
+     * @return array
+     */
+    public function getIblock(): array
     {
         $this->entity->getIblock()->fill();
         $fields = $this->entity->getIblock()->collectValues();
-        if (count($this->properties) > 0) {
-            $fields['PROPERTIES'] = $this->properties;
-        }
+        $fields['PROPERTIES'] = $this->properties;
 
-        return IblockDto::fromArray($fields);
+        return $fields;
     }
 
     /**
-     * Получение списка элементов
+     * Получение списка элементов по параметрам
+     * TODO: не выбирать все поля, а только нужные
      * @param array $params
      * @return array
-     * @throws \Bitrix\Main\ArgumentException
-     * @throws \Bitrix\Main\ObjectPropertyException
-     * @throws \Bitrix\Main\SystemException
+     * @throws ArgumentException
+     * @throws ObjectPropertyException
+     * @throws SystemException
      */
-    public function getList(array $params): array
+    public function getElements(array $params): array
     {
-        $elements = [];
-        $data = $this->getElementsData($params);
-
-        foreach ($data as $item) {
-            $item['DETAIL_PAGE_URL'] = $this->getDetailUrl($item);
-
-            foreach ($item['PROPERTY_VALUES'] as $code => $value) {
-                $prop = $this->properties[$code];
-
-                // TODO: подумать как лучше преобразовывать значение
-                $value = IblockHelper::parseValue($prop, $value);
-
-                $prop['VALUE'] = $value;
-                $prop = PropertyValueDto::fromArray($prop);
-
-                $item['PROPERTY_VALUES'][$code] = $prop;
+        if (!isset($params['select'])) {
+            $params['select'] = ['*'];
+            foreach (array_keys($this->properties) as $key) {
+                $params['select'][] = 'PROPERTY_' . $key;
             }
-            unset($value);
-
-            $elements[] = ElementDto::fromArray($item);
         }
 
-        return $elements;
-    }
+        $this->setParams($params);
 
-    /**
-     * Получение всего кол-ва элементов
-     * @param array $filter
-     * @return int
-     * @throws \Bitrix\Main\ObjectPropertyException
-     * @throws \Bitrix\Main\SystemException
-     */
-    public function getCount(array $filter)
-    {
-        return $this->dataClass::getCount($filter);
-    }
-
-    /**
-     * Получение элементов инфоблока
-     *
-     * @param array $filter
-     * @param array $select
-     * @return array
-     * @throws \Bitrix\Main\ArgumentException
-     * @throws \Bitrix\Main\ObjectPropertyException
-     * @throws \Bitrix\Main\SystemException
-     */
-    protected function getElementsData(array $params): array
-    {
-        $elements = [];
-
-        $select = $params['select'] ?? ['*'];
-        $filter = $params['filter'] ?? [];
-        $limit = $params['limit'] ?? false;
-        $offset = $params['offset'] ?? false;
-        $order = $params['order'] ?? ['ID'];
-
-        $propertyCodes = array_keys($this->properties);
-        $select = array_merge($select, $propertyCodes);
-
-        $collection = $this->dataClass::getList([
-            'select' => $select,
-            'filter' => $filter,
-            'limit' => $limit,
-            'offset' => $offset,
-            'order' => $order
-        ])->fetchCollection();
-        foreach ($collection as $item) {
-            $element = [];
-
-            // TODO: проблема со свойствами, которые названы аналогично стандартным полям
-            // 1. они не выбираются в коллекции
-            // 2. после проверки in_array попадает обычное поле в PROPERTY_VALUES
-            // 3. с алиасами коллекции не работают, поля возвращаются как есть, без алиасов
-            $fields = $item->collectValues();
-            foreach ($fields as $code => $field) {
-                if (in_array($code, $propertyCodes)) {
-                    $element['PROPERTY_VALUES'][$code] = $this->getPropertyValue($field);
-                } else {
-                    $element[$code] = $field;
-                }
-            }
-
-            $elements[] = $element;
+        if ($params['limit']) {
+            $this->setNavigation($params['limit'], $params['offset'] ?? 1);
         }
 
-        return $elements;
+        return $this->getResult();
+    }
+
+    protected function getResult(): array
+    {
+        $result = parent::getResult();
+
+        foreach ($result as &$element) {
+            foreach ($element['PROPERTIES'] as $code => $value) {
+                $element['PROPERTIES'][$code] = IblockHelper::parseValue($this->properties[$code], $value);
+            }
+        }
+        unset($element);
+
+        return $result;
+    }
+
+    protected function getOrder(): array
+    {
+        $sort = parent::getOrder();
+        $sort[self::SORT_BY_DEFAULT] = self::SORT_ORDER_DEFAULT;
+
+        return $sort;
     }
 
     /**
@@ -172,24 +126,36 @@ class IblockRepository
 
             switch ($fields['PROPERTY_TYPE']) {
                 case PropertyTable::TYPE_LIST:
-                    $fields['ITEMS'] = PropertyEnumerationTable::getList([
+                    $items = PropertyEnumerationTable::getList([
                         'filter' => [
                             'PROPERTY_ID' => $property['ID'],
                         ],
-                        'cache' => ['ttl' => 36000]
+                        'cache' => ['ttl' => self::CACHE_TIME]
                     ])->fetchAll();
+                    if ($items) {
+                        $fields['ITEMS'] = $items;
+                    }
                     break;
                 default:
+
                     if (isset($fields['USER_TYPE']) && $fields['USER_TYPE'] === 'directory') {
                         $settings = unserialize($fields['USER_TYPE_SETTINGS']);
                         $table = $settings['TABLE_NAME'];
 
-                        $hl = HighloadBlockTable::getList(['filter' => ['TABLE_NAME' => $table]])->fetch();
+                        $hl = HighloadBlockTable::getList([
+                            'filter' => ['TABLE_NAME' => $table],
+                            'cache' => ['ttl' => self::CACHE_TIME]
+                        ])->fetch();
+
                         if ($hl) {
                             $hlEntity = HighloadBlockTable::compileEntity($hl);
                             $entityDataClass = $hlEntity->getDataClass();
 
-                            $fields['ITEMS'] = $entityDataClass::getList()->fetchAll();
+                            $items = $entityDataClass::getList()->fetchAll();
+
+                            if ($items) {
+                                $fields['ITEMS'] = $items;
+                            }
                         }
                     }
             }
@@ -202,66 +168,49 @@ class IblockRepository
     }
 
     /**
-     * Обработка значений свойств
+     * Получение свойства инфоблока
      *
-     * @param $value
-     * @return array|mixed
-     * @throws \Bitrix\Main\ArgumentException
+     * @param string $name
+     * @return array|null
      */
-    protected function getPropertyValue($value)
+    public function getProperty(string $name): ?array
     {
-        $new = null;
-        switch (true) {
-            case $value instanceof Collection:
-
-                $collection = $value->getAll();
-                foreach ($collection as $item) {
-                    $new[] = $this->getPropertyValue($item);
-                }
-
-                break;
-            case $value instanceof ValueStorage:
-                $new = $value->collectValues();
-                break;
-            default:
-                $new = $value;
-        }
-
-        return $new;
+        return $this->properties[$name] ?? null;
     }
 
     /**
-     * Получение ЧПУ детальной страницы
+     * Проверяет наличие поля инфоблока
      *
-     * @param array $values
-     * @return string
+     * @param string $mame
+     * @return bool
      */
-    protected function getDetailUrl(array $values): string
+    public function hasField(string $mame): bool
     {
-        return \CIBlock::ReplaceDetailUrl($this->entity->getIblock()->fillDetailPageUrl(), $values, false, 'E');
+        return $this->entity->hasField($mame);
     }
 
+
     /**
-     * Инициализация репозитория
-     *
+     * Инициализация репозитория по коду
      * @param string $code
      * @return self
+     * @throws ArgumentException
+     * @throws ObjectPropertyException
      * @throws RepositoryException
-     * @throws \Bitrix\Main\ArgumentException
-     * @throws \Bitrix\Main\ObjectPropertyException
-     * @throws \Bitrix\Main\SystemException
+     * @throws SystemException
      */
     public static function factory(string $code): self
     {
         $iblock = IblockHelper::getIblockByCode($code, ['API_CODE']);
         if (!$iblock) {
-            throw new RepositoryException(Loc::getMessage('ALTO_STRAPI_REPOSITORY_EXCEPTION_NOT_FOUND_IBLOCK', ['#CODE#' => $code]));
+            throw new RepositoryException(Loc::getMessage('ALTO_MAKEAPI_REPOSITORY_EXCEPTION_NOT_FOUND_IBLOCK', ['#CODE#' => $code]));
         }
-
-        if (!$iblock['API_CODE']) {
-            throw new RepositoryException(Loc::getMessage('ALTO_STRAPI_REPOSITORY_EXCEPTION_INVALID_API_CODE', ['#CODE#' => $code]));
+        
+        if (empty($iblock['API_CODE'])) {
+            throw new RepositoryException(Loc::getMessage('ALTO_MAKEAPI_REPOSITORY_EXCEPTION_INVALID_API_CODE', ['#CODE#' => $code]));
         }
 
         return new self($iblock['API_CODE']);
     }
+
 }

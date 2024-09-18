@@ -2,15 +2,19 @@ openapi: "3.0.3"
 info:
   version: "1.0.0"
   title: "Alto MakeApi"
+servers:
+  - url: http://localhost/api/v1
 tags:
   - name: iblock
     description: Получение данных инфоблока
+  - name: page
+    description: Получение данных для страницы
 paths:
-  /api/v1/iblock/{iblock_code}:
+  /iblock/{iblock_code}:
     get:
       tags:
         - iblock
-      summary: Получить информацию об инфоблоке
+      description: Получить информацию об инфоблоке
       parameters:
         - name: iblock_code
           in: path
@@ -19,23 +23,23 @@ paths:
           schema:
             type: string
       responses:
-        '200':
+        200:
           description: Успешный запрос
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/IblockResponse'
-        '400':
-          description: Некорректный запрос
-        '404':
+        404:
           description: Инфоблок не найден
-        '500':
-          description: Внутренняя ошибка сервера
-  /api/v1/iblock/{iblock_code}/elements:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResponseError'
+  /iblock/{iblock_code}/elements:
     get:
       tags:
         - iblock
-      summary: Получить список элементов инфоблока
+      description: Получить список элементов инфоблока
       parameters:
         - name: iblock_code
           in: path
@@ -61,31 +65,33 @@ paths:
           required: false
           schema:
             type: string
-        - name: filter
+        - name: order
           in: query
-          description: Фильтр для элементов инфоблока, только стандартные поля элементов
+          description: Направление сортировки
           required: false
-          example: filter[ID]=1
           schema:
             type: string
+        - name: filter
+          in: query
+          description: Фильтр для элементов инфоблока
+          required: false
+          example: filter[ID]=1, filter[>ID]=2, filter[ID]=1,2,3
+          style: deepObject
+          explode: true
+          schema:
+            type: object
       responses:
-        '200':
+        200:
           description: Успешный запрос
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/IblockElementsResponse'
-        '400':
-          description: Некорректный запрос
-        '404':
-          description: Инфоблок не найден
-        '500':
-          description: Внутренняя ошибка сервера
-  /api/v1/iblock/{iblock_code}/element:
+  /iblock/{iblock_code}/element:
     get:
       tags:
         - iblock
-      summary: Получить информацию об элементе инфоблока
+      description: Получить информацию об элементе
       parameters:
         - name: iblock_code
           in: path
@@ -95,30 +101,31 @@ paths:
             type: string
         - name: element_id
           in: query
-          description: ID элемента инфоблока
-          required: true
+          description: ID элемента (обязательно, если `element_code` не указан)
+          required: false
           schema:
             type: string
-        - name: fields
+        - name: element_code
           in: query
-          description: Список полей, который получить
-          required: true
+          description: Символьный код элемента (обязательно, если `element_id` не указан)
+          required: false
           schema:
             type: string
       responses:
-        '200':
+        200:
           description: Успешный запрос
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/IblockElement'
-        '400':
-          description: Некорректный запрос
-        '404':
+                $ref: '#/components/schemas/IblockElementResponse'
+        404:
           description: Элемент не найден
-        '500':
-          description: Внутренняя ошибка сервера
-  /api/v1/iblock/{iblock_code}/sections:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResponseError'
+
+  /iblock/{iblock_code}/sections:
     get:
       tags:
         - iblock
@@ -132,7 +139,7 @@ paths:
             type: string
         - name: limit
           in: query
-          description: Количество элементов на странице
+          description: Количество разделов на страницу
           required: false
           schema:
             type: integer
@@ -148,20 +155,20 @@ paths:
           required: false
           schema:
             type: string
+        - name: order
+          in: query
+          description: Направление сортировки
+          required: false
+          schema:
+            type: string
       responses:
-        '200':
+        200:
           description: Успешный запрос
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/IblockSectionsResponse'
-        '400':
-          description: Некорректный запрос
-        '404':
-          description: Инфоблок не найден
-        '500':
-          description: Внутренняя ошибка сервера
-  /api/v1/iblock/{iblock_code}/section:
+  /iblock/{iblock_code}/section:
     get:
       tags:
         - iblock
@@ -175,14 +182,14 @@ paths:
             type: string
         - name: section_id
           in: query
-          description: ID раздела инфоблока
-          required: true
+          description: ID раздела инфоблока (обязательно, если `section_code` не указан)
+          required: false
           schema:
             type: string
-        - name: fields
+        - name: section_code
           in: query
-          description: Список полей, который получить
-          required: true
+          description: Символьный код раздела инфоблока (обязательно, если `section_id` не указан)
+          required: false
           schema:
             type: string
       responses:
@@ -191,29 +198,28 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Section'
-        '400':
-          description: Некорректный запрос
-        '404':
-          description: Элемент не найден
-        '500':
-          description: Внутренняя ошибка сервера
-  /api/v1/content/{code}:
+                $ref: '#/components/schemas/IblockSectionResponse'
+        404:
+          description: Раздел не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResponseError'
+  /content:
     get:
       tags:
-        - content
-      summary: Получить контент области
+        - page
+      summary: Получить контент области на странице
       parameters:
-        - name: code
-          in: path
-          description: Код инфоблока
+        - name: page
+          in: query
+          description: URL-страницы
           required: true
           schema:
             type: string
         - name: site
           in: query
           description: ID сайта
-          required: true
           schema:
             type: string
       responses:
@@ -222,194 +228,581 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ContentElement'
+                $ref: '#/components/schemas/ContentListResponseSuccess'
         400:
           description: Некорректный запрос
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResponseError'
         404:
           description: Контент не найден
-        500:
-          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResponseError'
+  /content/{code}:
+    get:
+      tags:
+        - page
+      summary: Получить контент области
+      parameters:
+        - name: code
+          in: path
+          description: Код контент области
+          required: true
+          schema:
+            type: string
+        - name: site
+          in: query
+          description: ID сайта
+          schema:
+            type: string
+      responses:
+        200:
+          description: Успешный запрос
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContentResponseSuccess'
+        400:
+          description: Некорректный запрос
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResponseError'
+        404:
+          description: Контент не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResponseError'
 
 components:
   schemas:
+    ResponseError:
+      type: object
+      properties:
+        status:
+          type: string
+          default: error
+        data:
+          type: object
+          nullable: true
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorItem'
+    ErrorItem:
+      type: object
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+    Pagination:
+      type: object
+      properties:
+        page:
+          type: integer
+          description: Номер текущей страницы
+        total_page:
+          type: integer
+          description: Кол-во всех страниц
+        limit:
+          type: integer
+          description: Кол-во элементов на страницу
+        count_items:
+          type: integer
+          description: Кол-во всех элементов
+    Image:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: ID Изображения
+        url:
+          type: array
+          items:
+            type: object
+            properties:
+              desktop:
+                type: string
+                description: URL для ПК версии
+              mobile:
+                type: string
+                description: URL для мобильной версии
+          description: URL Изображения
+        alt:
+          type: string
+          description: Название изображения
+        type:
+          type: string
+          description: Тип файла, image / file
+    File:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: ID Файла
+        url:
+          type: string
+          description: URL
+        name:
+          type: string
+          description: Название файла
+        alt:
+          type: string
+          description: Описание
+        type:
+          type: string
+          description: Тип файла, image / file
+    Text:
+      type: object
+      properties:
+        type:
+          type: string
+          description: Тип текста
+        text:
+          type: string
+          description: Текст
+    User:
+      type: object
+      description: Данные пользователя
+      properties:
+        id:
+          type: integer
+          description: ID
+        active:
+          type: boolean
+          description: Активность
+        name:
+          type: string
+          description: Имя
+        second_name:
+          type: string
+          description: Отчество
+        last_name:
+          type: string
+          description: Фамилия
+        xml_id:
+          type: string
+          description: Внешний ID
+
+    ContentListResponseSuccess:
+      type: object
+      properties:
+        status:
+          type: string
+          default: success
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/ContentItem'
+    ContentResponseSuccess:
+      type: object
+      properties:
+        status:
+          type: string
+          default: success
+        data:
+          $ref: '#/components/schemas/ContentItem'
+    ContentItem:
+      type: object
+      properties:
+        page:
+          type: string
+          description: Код страницы
+        code:
+          type: string
+          description: Код контент-области
+        content:
+          type: string
+          description: Вставляемый контент
+        type:
+          type: string
+          description: Тип контента, [text, html, image]
+          enum:
+            - text
+            - html
+            - image
+        sort:
+          type: integer
+          description: Сортировка
+
     IblockResponse:
       type: object
       properties:
         status:
           type: string
-          description: Статус запроса
-          enum:
-            - error
-            - success
-        errors:
-          type: array
-          items:
-            $ref: '#/components/schemas/ErrorResponse'
+          default: success
         data:
           type: object
           properties:
-            ID:
+            id:
               type: integer
               example: 2
-            API_CODE:
+            api_code:
               type: string
-              example: Products
-            VERSION:
+              example: News
+            version:
               type: string
               example: "1"
-            TIMESTAMP_X:
+            timestamp:
               type: string
               format: date-time
               example: "2024-04-15T08:23:19+03:00"
-            IBLOCK_TYPE_ID:
+            iblock_type_id:
               type: string
-              example: products
-            LID:
+              example: content
+            site_id:
               type: string
               example: s1
-            CODE:
+            code:
               type: string
-              example: furniture_products_s1
-            REST_ON:
+              example: news
+            name:
+              type: string
+              example: "Новости"
+            active:
               type: boolean
               example: true
-            NAME:
-              type: string
-              example: "[s1] Продукция"
-            ACTIVE:
-              type: boolean
-              example: true
-            SORT:
+            sort:
               type: integer
               example: 500
-            LIST_PAGE_URL:
+            list_page_url:
               type: string
-              example: "#SITE_DIR#/products/"
-            DETAIL_PAGE_URL:
+              example: "#SITE_DIR#/news/"
+            detail_page_url:
               type: string
-              example: "#SITE_DIR#/products/#SECTION_ID#/#ID#/"
-            SECTION_PAGE_URL:
+              example: "#SITE_DIR#/news/#SECTION_ID#/#ID#/"
+            section_page_url:
               type: string
-              example: "#SITE_DIR#/products/#ID#/"
-            CANONICAL_PAGE_URL:
+              example: "#SITE_DIR#/news/#ID#/"
+            canonical_page_url:
               type: string
-            PICTURE:
-              type: integer
-              example: 0
-            DESCRIPTION:
+            description:
               type: string
-            DESCRIPTION_TYPE:
-              type: string
-              enum: [text, html]
-            XML_ID:
-              type: string
-              example: furniture_products_s1
-            TMP_ID:
-              type: string
-              example: "2dd3906a3ec2088a1f7d83fa6067876c"
-            INDEX_ELEMENT:
-              type: boolean
-              example: true
-            INDEX_SECTION:
-              type: boolean
-              example: true
-            WORKFLOW:
-              type: boolean
-              example: false
-            BIZPROC:
-              type: boolean
-              example: false
-            SECTION_CHOOSER:
-              type: string
-              example: L
-            LIST_MODE:
-              type: string
-            RIGHTS_MODE:
-              type: string
-              example: S
-            SECTION_PROPERTY:
-              type: boolean
-              example: false
-            PROPERTY_INDEX:
-              type: string
-              enum: [N, Y]
-            LAST_CONV_ELEMENT:
-              type: integer
-              example: 0
-            SOCNET_GROUP_ID:
-              type: integer
-              example: 0
-            EDIT_FILE_BEFORE:
-              type: string
-            EDIT_FILE_AFTER:
-              type: string
-            TYPE:
-              type: object
-            PROPERTIES:
+            properties:
               type: array
               items:
-                $ref: '#/components/schemas/Property'
+                anyOf:
+                  - $ref: '#/components/schemas/PropertyInfo'
+                  - $ref: '#/components/schemas/PropertyListInfo'
+                  - $ref: '#/components/schemas/PropertyDirectoryInfo'
+    PropertyInfo:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        name:
+          type: string
+          example: "Свойство типа Файл или Строка"
+        code:
+          type: string
+          example: "PROPERTY_CODE"
+        active:
+          type: boolean
+          example: true
+        required:
+          type: boolean
+          example: false
+        multiple:
+          type: boolean
+          example: true
+        type:
+          type: string
+          example: "F"
+    PropertyListInfo:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        name:
+          type: string
+          example: "Свойство типа Список"
+        code:
+          type: string
+          example: "PROPERTY_CODE"
+        active:
+          type: boolean
+          example: true
+        required:
+          type: boolean
+          example: false
+        multiple:
+          type: boolean
+          example: true
+        type:
+          type: string
+          example: "L"
+        items:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: integer
+                description: ID значения свойства
+              value:
+                type: string
+                description: Значение
+              default:
+                type: boolean
+                description: Является ли значением по умолчанию
+              sort:
+                type: integer
+                description: Сортировка
+              xml_id:
+                type: string
+                description: Код значения
+    PropertyDirectoryInfo:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        name:
+          type: string
+          example: "Свойство типа Справочник"
+        code:
+          type: string
+          example: "PROPERTY_CODE"
+        active:
+          type: boolean
+          example: true
+        required:
+          type: boolean
+          example: false
+        multiple:
+          type: boolean
+          example: true
+        type:
+          type: string
+          example: "S"
+        items:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: integer
+                description: ID значения свойства
+              name:
+                type: string
+                description: Название
+              sort:
+                type: integer
+                description: Сортировка
+              xml_id:
+                type: string
+                description: Код значения
+              link:
+                type: string
+                description: Ссылка
+              description:
+                type: string
+                description: Описание
+              full_description:
+                type: string
+                description: Полное описание
+              default:
+                type: boolean
+                description: Является ли значением по умолчанию
+              file:
+                anyOf:
+                  - $ref: '#/components/schemas/File'
+                  - $ref: '#/components/schemas/Image'
+    PropertyValue:
+      type: string
+      description: Значение свойства типа Строка
+    PropertyElementValue:
+      type: object
+      description: Значение свойства типа Привязка к элементу
+      properties:
+        id:
+          type: integer
+          description: ID
+        name:
+          type: string
+          description: Название
+        code:
+          type: string
+          description: Символьный код
+    PropertyListValue:
+      type: object
+      description: Значение свойства типа Список
+      properties:
+        id:
+          type: integer
+          description: ID
+        value:
+          type: string
+          description: Значение
+        xml_id:
+          type: string
+          description: Символьный код
+    PropertyDirectoryValue:
+      type: object
+      description: Значение свойства типа Справочник
+      properties:
+        id:
+          type: integer
+          description: ID
+        name:
+          type: string
+          description: Название
+        xml_id:
+          type: string
+          description: Символьный код
+        description:
+          type: string
+          description: Краткое описание
+        full_description:
+          type: string
+          description: Полное описание
+        file:
+          description: Файл
+          oneOf:
+            - $ref: '#/components/schemas/Image'
+            - $ref: '#/components/schemas/File'
+    Properties:
+      type: object
+      description: Значения пользовательских свойств элемента
+      properties:
+        PROPERTY_CODE_STRING:
+          $ref: '#/components/schemas/PropertyValue'
+        PROPERTY_CODE_ELEMENT:
+          $ref: '#/components/schemas/PropertyElementValue'
+        PROPERTY_CODE_LIST:
+          $ref: '#/components/schemas/PropertyListValue'
+        PROPERTY_CODE_DIRECTORY:
+          $ref: '#/components/schemas/PropertyDirectoryValue'
+        PROPERTY_CODE_FILE:
+          oneOf:
+            - $ref: '#/components/schemas/Image'
+            - $ref: '#/components/schemas/File'
+        PROPERTY_MULTIPLE:
+          type: array
+          description: Множественное свойство (массив значений)
+          items:
+            anyOf:
+              - $ref: '#/components/schemas/Image'
+              - $ref: '#/components/schemas/File'
+              - $ref: '#/components/schemas/PropertyValue'
+              - $ref: '#/components/schemas/PropertyElementValue'
+              - $ref: '#/components/schemas/PropertyListValue'
+              - $ref: '#/components/schemas/PropertyDicrionaryValue'
 
     IblockElementsResponse:
       type: object
       properties:
         status:
           type: string
-          description: Статус запроса
-          enum:
-            - error
-            - success
-        errors:
-          type: array
-          items:
-            $ref: '#/components/schemas/ErrorResponse'
+          default: success
         data:
           type: object
           properties:
-            total:
-              type: integer
-              description: Общее количество элементов
-            page:
-              type: integer
-              description: Номер текущей страницы
-            limit:
-              type: integer
-              description: Лимит элементов на странице
+            pagination:
+              $ref: '#/components/schemas/Pagination'
             items:
               type: array
               items:
-                $ref: '#/components/schemas/IblockElement'
+                $ref: '#/components/schemas/ElementShort'
     IblockSectionsResponse:
       type: object
       properties:
         status:
           type: string
-          description: Статус запроса
-          enum:
-            - error
-            - success
-        errors:
-          type: array
-          items:
-            $ref: '#/components/schemas/ErrorResponse'
+          default: success
         data:
           type: object
           properties:
-            total:
-              type: integer
-              description: Общее количество разделов
-            page:
-              type: integer
-              description: Номер текущей страницы
-            limit:
-              type: integer
-              description: Лимит разделов на странице
+            pagination:
+              $ref: '#/components/schemas/Pagination'
             items:
               type: array
               items:
-                $ref: '#/components/schemas/Section'
+                $ref: '#/components/schemas/SectionShort'
+    IblockSectionResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          default: success
+        data:
+          $ref: '#/components/schemas/Section'
+    IblockElementResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          default: success
+        data:
+          type: object
+          properties:
+            item:
+              $ref: '#/components/schemas/IblockElement'
 
     IblockElement:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: Уникальный идентификатор
+        code:
+          type: string
+          description: Символьный код
+        xml_id:
+          type: string
+          description: Внешний ID
+        name:
+          type: string
+          description: Название
+        active:
+          type: boolean
+          description: Флаг активности
+        date_create:
+          type: string
+          format: date-time
+          description: Дата создания
+        date_update:
+          type: string
+          format: date-time
+          description: Дата обновления
+        active_from:
+          type: string
+          format: date-time
+          description: Дата начала активности
+        active_to:
+          type: string
+          format: date-time
+          description: Дата окончания активности
+        sort:
+          type: integer
+          description: Порядок сортировки
+        preview_text:
+          $ref: '#/components/schemas/Text'
+        detail_text:
+          $ref: '#/components/schemas/Text'
+        preview_picture:
+          $ref: '#/components/schemas/Image'
+        detail_picture:
+          $ref: '#/components/schemas/Image'
+        section:
+          $ref: '#/components/schemas/SectionShort'
+        created_by:
+          $ref: '#/components/schemas/User'
+        modified_by:
+          $ref: '#/components/schemas/User'
+        tags:
+          type: string
+          description: Теги элемента
+        properties:
+          $ref: '#/components/schemas/Properties'
+    ElementShort:
       type: object
       properties:
         id:
@@ -421,315 +814,90 @@ components:
         name:
           type: string
           description: Название элемента
-        url:
-          type: string
-          description: URL элемента
         active:
           type: boolean
           description: Флаг активности элемента
-        dateCreate:
+        date_create:
           type: string
           format: date-time
           description: Дата создания элемента
-        activeFrom:
-          type: string
-          format: date-time
-          description: Дата начала активности элемента
-        activeTo:
-          type: string
-          format: date-time
-          description: Дата окончания активности элемента
         sort:
           type: integer
           description: Порядок сортировки элемента
-        previewText:
-          type: string
-          description: Текст превью элемента
-        detailText:
-          type: string
-          description: Детальный текст элемента
-        previewPicture:
-          $ref: '#/components/schemas/Picture'
-          description: Превью изображение элемента
-        detailPicture:
-          $ref: '#/components/schemas/Picture'
-          description: Детальное изображение элемента
+        preview_text:
+          $ref: '#/components/schemas/Text'
+        detail_text:
+          $ref: '#/components/schemas/Text'
         section:
-          $ref: '#/components/schemas/Section'
-          description: Раздел, к которому относится элемент
+          $ref: '#/components/schemas/SectionShort'
         tags:
           type: string
           description: Теги элемента
-        propertyValues:
-          type: array
-          description: Значения пользовательских свойств элемента
-          items:
-            anyOf:
-              - $ref: '#/components/schemas/PropertyValue'
-              - $ref: '#/components/schemas/PropertyElement'
-
-    Picture:
+        properties:
+          $ref: '#/components/schemas/Properties'
+    SectionShort:
       type: object
       properties:
         id:
           type: integer
-          description: Уникальный идентификатор изображения
+          description: ID
+        xml_id:
+          type: string
+          description: Внешний ID
         name:
           type: string
-          description: Имя файла изображения
-        url:
+          description: Название
+        code:
           type: string
-          description: URL изображения
-        width:
-          type: string
-          description: Ширина изображения
-        height:
-          type: string
-          description: Высота изображения
-
+          description: Символьный код
+        active:
+          type: boolean
+          description: Признак активности
+        sort:
+          type: integer
+          description: Параметр сортировки
+        parent_id:
+          type: integer
+          description: ID родителя
+        picture:
+          $ref: '#/components/schemas/Image'
     Section:
       type: object
       properties:
         id:
           type: integer
-          description: Уникальный идентификатор раздела
+          description: ID
+        xml_id:
+          type: string
+          description: Внешний ID
         name:
           type: string
-          description: Название раздела
+          description: Название
         description:
-          type: string
-          description: Описание раздела
+          $ref: '#/components/schemas/Text'
         code:
           type: string
-          description: Код раздела
-        url:
-          type: string
-          description: URL раздела
+          description: Символьный код
         active:
           type: boolean
-          description: Флаг активности раздела
+          description: Признак активности
         sort:
           type: integer
-          description: Порядок сортировки раздела
+          description: Параметр сортировки
+        parent_id:
+          type: integer
+          description: ID родителя
+        date_create:
+          type: string
+          description: Дата создания
+        date_update:
+          type: string
+          description: Дата обновления
         picture:
-          $ref: '#/components/schemas/Picture'
-          description: Изображение раздела
-        detailPicture:
-          $ref: '#/components/schemas/Picture'
-          description: Детальное изображение раздела
-    Property:
-      type: object
-      properties:
-        ID:
-          type: integer
-          example: 1
-        TIMESTAMP_X:
-          type: string
-          format: date-time
-          example: "2024-04-22T10:21:04+03:00"
-        IBLOCK_ID:
-          type: integer
-          example: 2
-        NAME:
-          type: string
-          example: "Специальное предложение"
-        ACTIVE:
-          type: boolean
-          example: true
-        SORT:
-          type: integer
-          example: 100
-        CODE:
-          type: string
-          example: "SPECIALOFFER"
-        DEFAULT_VALUE:
-          type: string
-          example: ""
-        PROPERTY_TYPE:
-          type: string
-          example: "L"
-        ROW_COUNT:
-          type: integer
-          example: 1
-        COL_COUNT:
-          type: integer
-          example: 30
-        LIST_TYPE:
-          type: string
-          example: "C"
-        MULTIPLE:
-          type: boolean
-          example: true
-        XML_ID:
-          type: string
-          example: "5"
-        FILE_TYPE:
-          type: string
-          example: ""
-        MULTIPLE_CNT:
-          type: integer
-          example: 5
-        TMP_ID:
-          type: string
-        LINK_IBLOCK_ID:
-          type: integer
-          example: 0
-        WITH_DESCRIPTION:
-          type: boolean
-          example: false
-        SEARCHABLE:
-          type: boolean
-          example: false
-        FILTRABLE:
-          type: boolean
-          example: false
-        IS_REQUIRED:
-          type: boolean
-          example: false
-        VERSION:
-          type: string
-          example: "1"
-        USER_TYPE:
-          type: string
-          example: ""
-        USER_TYPE_SETTINGS_LIST:
-          type: string
-          example: "Array"
-        USER_TYPE_SETTINGS:
-          type: string
-          example: "a:0:{}"
-        HINT:
-          type: string
-          example: ""
-        ITEMS:
-          type: array
-          items:
-            type: object
-            properties:
-              ID:
-                type: string
-                example: "5"
-              PROPERTY_ID:
-                type: string
-                example: "1"
-              VALUE:
-                type: string
-                example: "нет"
-              DEF:
-                type: string
-                example: "N"
-              SORT:
-                type: string
-                example: "500"
-              XML_ID:
-                type: string
-                example: "N"
-              TMP_ID:
-                type: string
-    PropertyValue:
-      type: object
-      properties:
-        id:
-          type: integer
-          description: Уникальный идентификатор свойства
-        name:
-          type: string
-          description: Название свойства
-        code:
-          type: string
-          description: Код свойства
-        active:
-          type: boolean
-          description: Флаг активности свойства
-        require:
-          type: boolean
-          description: Флаг обязательного свойства
-        multiple:
-          type: boolean
-          description: Флаг множественного свойства
-        type:
-          type: string
-          description: Тип свойства
-        value:
-          type: array
-          description: Значения свойства
-          items:
-            $ref: '#/components/schemas/PropertyValue'
-
-    PropertyElement:
-      type: object
-      properties:
-        id:
-          type: integer
-          description: Уникальный идентификатор свойства
-        name:
-          type: string
-          description: Название свойства
-        code:
-          type: string
-          description: Код свойства
-        active:
-          type: boolean
-          description: Флаг активности свойства
-        require:
-          type: boolean
-          description: Флаг обязательного свойства
-        multiple:
-          type: boolean
-          description: Флаг множественного свойства
-        type:
-          type: string
-          description: Тип свойства
-        value:
-          type: array
-          description: Значения свойства
-          items:
-            $ref: '#/components/schemas/IblockElement'
-
-    ContentElement:
-      type: object
-      properties:
-        id:
-          type: integer
-          description: Уникальный идентификатор блока
-        code:
-          type: string
-          description: Код блока
-        sort:
-          type: integer
-          description: Сортировка
-        file:
-          type: string
-          description: URL на файл
-        content:
-          type: string
-          description: Контент
-        type:
-          type: string
-          description: Тип блока
-
-        siteId:
-          type: string
-          description: ID сайта элемента
-        createdAt:
-          type: string
-          format: date-time
-          description: Дата создания блока
-        updatedAt:
-          type: string
-          format: date-time
-          description: Дата обновления блока
-
-    ErrorResponse:
-      type: object
-      properties:
-        message:
-          type: string
-          description: Сообщение об ошибке
-        code:
-          type: string
-          description: Код ошибки
-        customData:
-          type: string
-          nullable: true
-          description: Дополнительные данные
+          $ref: '#/components/schemas/Image'
+        detail_picture:
+          $ref: '#/components/schemas/Image'
+        created_by:
+          $ref: '#/components/schemas/User'
+        modified_by:
+          $ref: '#/components/schemas/User'

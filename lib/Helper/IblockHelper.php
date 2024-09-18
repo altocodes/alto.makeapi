@@ -2,7 +2,9 @@
 
 namespace Alto\MakeApi\Helper;
 
-use Alto\MakeApi\Dto\Iblock\ElementShortDto;
+use Alto\MakeApi\Dto\Iblock\Property\Value\DirectoryValueDto;
+use Alto\MakeApi\Dto\Iblock\Property\Value\ElementValueDto;
+use Alto\MakeApi\Dto\Iblock\Property\Value\ListValueDto;
 use Bitrix\Iblock\ElementTable;
 use Bitrix\Iblock\IblockTable;
 use Bitrix\Iblock\PropertyTable;
@@ -41,23 +43,26 @@ class IblockHelper
 
     /**
      * Преобразование значения в читабельный вид
-     *
      * @param array $property
      * @param $value
-     * @return ElementShortDto|mixed|string
+     * @return \Alto\MakeApi\Dto\BaseDto|DirectoryValueDto|ElementValueDto|ListValueDto|mixed|null
      * @throws ArgumentException
      * @throws ObjectPropertyException
      * @throws SystemException
      */
     public static function parseValue(array $property, $value)
     {
-        if (isset($value['VALUE'])) {
+        if (is_array($value) && isset($value['VALUE'])) {
             $value = $value['VALUE'];
+        }
+
+        if (empty($value)) {
+            return null;
         }
 
         if (is_array($value)) {
             foreach ($value as &$val) {
-                if (isset($val['VALUE'])) {
+                if (is_array($val) && isset($val['VALUE'])) {
                     $val = $val['VALUE'];
                 }
 
@@ -66,32 +71,35 @@ class IblockHelper
             unset($val);
         } else {
             switch ($property['PROPERTY_TYPE']) {
+                case PropertyTable::TYPE_FILE:
+                    $value = FetcherHelper::getById((int)$value);
+                    break;
                 case PropertyTable::TYPE_SECTION:
-                    if ($section = SectionTable::getById((int) $value)->fetch()) {
+                    if ($section = SectionTable::getById((int)$value)->fetch()) {
                         $value = $section['NAME'];
                     }
                     break;
                 case PropertyTable::TYPE_LIST:
                     foreach ($property['ITEMS'] as $item) {
                         if ($value == $item['ID'] || $value == $item['XML_ID']) {
-                            $value = $item['VALUE'];
+                            $value = ListValueDto::fromArray($item);
                             break;
                         }
                     }
 
                     if ($value === 0) {
-                        $value = '';
+                        $value = null;
                     }
 
                     break;
                 case PropertyTable::TYPE_ELEMENT:
                     $element = ElementTable::getList([
-                        'filter' => ['ID' => (int) $value],
+                        'filter' => ['ID' => (int)$value],
                         'cache' => ['ttl' => 36000]
                     ])->fetch();
 
                     if ($element) {
-                        $value = ElementShortDto::fromArray($element);
+                        $value = ElementValueDto::fromArray($element);
                     }
                     break;
                 case self::PROPERTY_USER_FIELD:
@@ -119,7 +127,10 @@ class IblockHelper
                             case 'directory':
                                 foreach ($property['ITEMS'] as $item) {
                                     if ($item['UF_XML_ID'] === $value) {
-                                        $value = $item;
+                                        if ($item['UF_FILE']) {
+                                            $item['UF_FILE'] = FetcherHelper::getById($item['UF_FILE']);
+                                        }
+                                        $value = DirectoryValueDto::fromArray($item);
                                     }
                                 }
                                 break;
@@ -146,4 +157,22 @@ class IblockHelper
         return $value;
     }
 
+    /**
+     * Приведение фильтра
+     * @param array $filter
+     * @return array
+     */
+    public static function prepareFilter(array $filter)
+    {
+        $preparedFilter = [];
+
+        foreach ($filter as $key => $value) {
+            // TODO: добавить обработку условия ИЛИ, например, ID => '2|3|5', PROPERTY_COLOR => 'red,blue|yellow,black'
+
+            $values = array_filter(explode(',', $value));
+            $preparedFilter[$key] = count($values) > 1 ? $values : $value;
+        }
+
+        return $preparedFilter;
+    }
 }

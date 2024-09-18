@@ -7,16 +7,16 @@ use Bitrix\Main\Loader;
 
 Loader::includeModule('highloadblock');
 
-class Content
+class Meta
 {
     private $hlid;
 
     private $hl = [
-        'NAME' => 'Content',
-        'TABLE_NAME' => 'alto_content',
+        'NAME' => 'MetaPage',
+        'TABLE_NAME' => 'alto_meta_page',
         'LANG' => [
-            'en' => 'Content',
-            'ru' => 'Контент сайта'
+            'en' => 'MetaPage',
+            'ru' => 'Meta-данные для страниц'
         ]
     ];
 
@@ -31,14 +31,14 @@ class Content
     ];
 
     private $fields = [
-        'UF_CODE' => [
+        'UF_PAGE' => [
             'USER_TYPE_ID' => 'string',
             'MANDATORY' => 'Y',
             'LABEL' => [
-                'en' => 'Code',
-                'ru' => 'Символьный код',
+                'en' => 'Page url',
+                'ru' => 'URL-страницы',
             ],
-            'SETTINGS' =>[
+            'SETTINGS' => [
                 'SIZE' => 50,
                 'ROWS' => 1,
                 'REGEXP' => '',
@@ -47,44 +47,60 @@ class Content
                 'DEFAULT_VALUE' => '',
             ],
         ],
-        'UF_TYPE' => [
-            'USER_TYPE_ID' => 'enumeration',
-            'MANDATORY' => 'Y',
-            'LABEL' => [
-                'en' => 'Content type',
-                'ru' => 'Тип контента',
-
-            ],
-            'SETTINGS' =>[
-                'DISPLAY' => 'LIST',
-                'LIST_HEIGHT' => 2,
-                'CAPTION_NO_VALUE' => '',
-                'SHOW_NO_VALUE' => 'N',
-            ],
-            'ENUM_VALUES' => [
-                'n0' => [
-                    'XML_ID' => 'text',
-                    'VALUE' => 'Обычный текст',
-                    'DEF' => 'Y',
-                    'SORT' => 100,
-                ],
-                'n1' => [
-                    'XML_ID' => 'file',
-                    'VALUE' => 'Файл',
-                    'DEF' => 'N',
-                    'SORT' => 200,
-                ],
-            ]
-        ],
-        'UF_CONTENT' => [
+        'UF_TITLE' => [
             'USER_TYPE_ID' => 'string',
             'LABEL' => [
-                'en' => 'Data',
-                'ru' => 'Контент',
+                'en' => 'Page title',
+                'ru' => 'Заголовок страницы',
             ],
-            'SETTINGS' =>[
+            'SETTINGS' => [
+                'SIZE' => 50,
+                'ROWS' => 1,
+                'REGEXP' => '',
+                'MIN_LENGTH' => 0,
+                'MAX_LENGTH' => 0,
+                'DEFAULT_VALUE' => '',
+            ],
+        ],
+        'UF_DESCRIPTION' => [
+            'USER_TYPE_ID' => 'string',
+            'LABEL' => [
+                'en' => 'Description page',
+                'ru' => 'Описание страницы',
+            ],
+            'SETTINGS' => [
                 'SIZE' => 100,
                 'ROWS' => 20,
+                'REGEXP' => '',
+                'MIN_LENGTH' => 0,
+                'MAX_LENGTH' => 0,
+                'DEFAULT_VALUE' => '',
+            ],
+        ],
+        'UF_ROBOTS' => [
+            'USER_TYPE_ID' => 'string',
+            'LABEL' => [
+                'en' => 'Robots params',
+                'ru' => 'Параметры robots',
+            ],
+            'SETTINGS' => [
+                'SIZE' => 50,
+                'ROWS' => 1,
+                'REGEXP' => '',
+                'MIN_LENGTH' => 0,
+                'MAX_LENGTH' => 0,
+                'DEFAULT_VALUE' => '',
+            ],
+        ],
+        'UF_CANONICAL' => [
+            'USER_TYPE_ID' => 'string',
+            'LABEL' => [
+                'en' => 'Canonical url',
+                'ru' => 'Каноническая ссылка (url)',
+            ],
+            'SETTINGS' => [
+                'SIZE' => 50,
+                'ROWS' => 1,
                 'REGEXP' => '',
                 'MIN_LENGTH' => 0,
                 'MAX_LENGTH' => 0,
@@ -97,7 +113,7 @@ class Content
                 'en' => 'Site (LID)',
                 'ru' => 'Сайт (LID)',
             ],
-            'SETTINGS' =>[
+            'SETTINGS' => [
                 'SIZE' => 20,
                 'ROWS' => 1,
                 'REGEXP' => '',
@@ -112,7 +128,7 @@ class Content
                 'en' => 'Date insert',
                 'ru' => 'Дата добавления',
             ],
-            'SETTINGS' =>[
+            'SETTINGS' => [
                 'DEFAULT_VALUE' => [
                     'TYPE' => 'NOW',
                     'VALUE' => '',
@@ -127,7 +143,7 @@ class Content
                 'en' => 'Date update',
                 'ru' => 'Дата изменения',
             ],
-            'SETTINGS' =>[
+            'SETTINGS' => [
                 'DEFAULT_VALUE' => [
                     'TYPE' => 'NOW',
                     'VALUE' => '',
@@ -136,35 +152,6 @@ class Content
                 'USE_TIMEZONE' => 'Y',
             ],
         ],
-        'UF_FILE' => [
-            'USER_TYPE_ID' => 'file',
-            'LABEL' => [
-                'en' => 'File',
-                'ru' => 'Файл',
-            ],
-            'SETTINGS' =>[
-                'SIZE' => 20,
-                'LIST_WIDTH' => 0,
-                'LIST_HEIGHT' => 0,
-                'MAX_SHOW_SIZE' => 0,
-                'MAX_ALLOWED_SIZE' => 0,
-                'EXTENSIONS' => [],
-                'TARGET_BLANK' => 'Y',
-            ],
-        ],
-        'UF_SORT' => [
-            'USER_TYPE_ID' => 'integer',
-            'LABEL' => [
-                'en' => 'Sort',
-                'ru' => 'Сортировка',
-            ],
-            'SETTINGS' =>[
-                'SIZE' => 20,
-                'MIN_VALUE' => 0,
-                'MAX_VALUE' => 0,
-                'DEFAULT_VALUE' => 0,
-            ],
-        ]
     ];
 
     private $permissions = [
@@ -173,14 +160,14 @@ class Content
         'RATING_VOTE_AUTHORITY' => 'D',
     ];
 
-    public function createDB()
+    public function create()
     {
         $this->addHlBlock();
         $this->savePermission();
         $this->addFields();
     }
 
-    public function deleteDB()
+    public function delete()
     {
         $hl = HighloadBlockTable::getList([
             'select' => ['ID'],
@@ -203,8 +190,8 @@ class Content
             foreach ($langs as $lid => $name) {
                 HighloadBlockLangTable::add(
                     [
-                        'ID'   => $this->hlid,
-                        'LID'  => $lid,
+                        'ID' => $this->hlid,
+                        'LID' => $lid,
                         'NAME' => $name,
                     ]
                 );
@@ -226,8 +213,8 @@ class Content
             if (!empty($taskId)) {
                 HighloadBlockRightsTable::add(
                     [
-                        'HL_ID'       => $this->hlid,
-                        'TASK_ID'     => $taskId,
+                        'HL_ID' => $this->hlid,
+                        'TASK_ID' => $taskId,
                         'ACCESS_CODE' => 'G' . $groupId,
                     ]
                 );

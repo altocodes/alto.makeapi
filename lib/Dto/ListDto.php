@@ -4,20 +4,14 @@ namespace Alto\MakeApi\Dto;
 
 class ListDto extends BaseDto
 {
-    private int $page;
-    private int $limit;
-    private int $total;
-    private array $items;
+    public readonly PaginationDto $pagination;
+    public readonly array $items;
 
     public function __construct(
-        int $page,
-        int $limit,
-        int $total,
+        PaginationDto $pagination,
         array $items
     ) {
-        $this->page = $page;
-        $this->limit = $limit;
-        $this->total = $total;
+        $this->pagination = $pagination;
         $this->items = $items;
     }
 }

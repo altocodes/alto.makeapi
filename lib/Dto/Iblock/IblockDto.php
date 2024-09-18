@@ -6,23 +6,22 @@ use Alto\MakeApi\Dto\BaseDto;
 
 class IblockDto extends BaseDto
 {
-    private int $id;
-    private string $apiCode;
-    private string $version;
-    private string $timestamp;
-    private string $iblockTypeId;
-    private string $siteId;
-    private string $code;
-    private string $name;
-    private bool $active;
-    private int $sort;
-    private string $listPageUrl;
-    private string $detailPageUrl;
-    private string $sectionPageUrl;
-    private string $canonicalPageUrl;
-    private ?PictureDto $picture;
-    private string $description;
-    private ?array $properties;
+    public readonly int $id;
+    public readonly string $api_code;
+    public readonly string $version;
+    public readonly string $timestamp;
+    public readonly string $iblock_type_id;
+    public readonly string $site_id;
+    public readonly string $code;
+    public readonly string $name;
+    public readonly bool $active;
+    public readonly int $sort;
+    public readonly string $list_page_url;
+    public readonly string $detail_page_url;
+    public readonly string $section_page_url;
+    public readonly string $canonical_page_url;
+    public readonly string $description;
+    public readonly ?array $properties;
 
     public function __construct(
         int $id,
@@ -39,25 +38,23 @@ class IblockDto extends BaseDto
         string $detailPageUrl,
         string $sectionPageUrl,
         string $canonicalPageUrl,
-        ?PictureDto $picture,
         string $description,
         ?array $properties
     ) {
         $this->id = $id;
-        $this->apiCode = $apiCode;
+        $this->api_code = $apiCode;
         $this->version = $version;
         $this->timestamp = $timestamp;
-        $this->iblockTypeId = $iblockTypeId;
-        $this->siteId = $siteId;
+        $this->iblock_type_id = $iblockTypeId;
+        $this->site_id = $siteId;
         $this->code = $code;
         $this->name = $name;
         $this->active = $active;
         $this->sort = $sort;
-        $this->listPageUrl = $listPageUrl;
-        $this->detailPageUrl = $detailPageUrl;
-        $this->sectionPageUrl = $sectionPageUrl;
-        $this->canonicalPageUrl = $canonicalPageUrl;
-        $this->picture = $picture;
+        $this->list_page_url = $listPageUrl;
+        $this->detail_page_url = $detailPageUrl;
+        $this->section_page_url = $sectionPageUrl;
+        $this->canonical_page_url = $canonicalPageUrl;
         $this->description = $description;
         $this->properties = $properties;
     }
@@ -79,7 +76,6 @@ class IblockDto extends BaseDto
             $fields['DETAIL_PAGE_URL'],
             $fields['SECTION_PAGE_URL'],
             $fields['CANONICAL_PAGE_URL'],
-            PictureDto::byId($fields['PICTURE']),
             $fields['DESCRIPTION'],
             $fields['PROPERTIES']
         );

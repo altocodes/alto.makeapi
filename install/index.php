@@ -1,23 +1,19 @@
 <?php
 
-use Bitrix\Highloadblock\HighloadBlockTable;
 use Bitrix\Main\Application;
-use Bitrix\Main\DB\SqlQueryException;
-use Bitrix\Main\Entity\Base;
 use Bitrix\Main\Loader;
 use Bitrix\Main\LoaderException;
 use Bitrix\Main\Localization\Loc;
 use Bitrix\Main\ModuleManager;
 use Bitrix\Main\NotSupportedException;
 use Bitrix\Main\ORM\Entity;
-use Bitrix\Main\ORM\Fields\IntegerField;
-use Bitrix\Main\ORM\Fields\EnumField;
-use Bitrix\Main\ORM\Fields\DatetimeField;
 use Bitrix\Main\SystemException;
-
-use Alto\MakeApi\Orm\ContentTable;
+use Bitrix\Main\IO\Directory;
+use Bitrix\Main\IO\File;
 
 Loc::loadMessages(__FILE__);
+
+Loader::includeModule('highloadblock');
 
 class alto_makeapi extends CModule
 {
@@ -124,10 +120,14 @@ class alto_makeapi extends CModule
      */
     public function installDB()
     {
-        require __DIR__ . '/content.php';
+        foreach (new DirectoryIterator(__DIR__ . '/hlblock') as $entry) {
+            if (!$entry->isDot() && $entry->isFile()) {
+                require_once(__DIR__ . '/hlblock/' . $entry->getFilename());
 
-        $content = new Content();
-        $content->createDB();
+                $table = new ($entry->getBasename('.php'))();
+                $table->create();
+            }
+        }
     }
 
     /**
@@ -137,20 +137,32 @@ class alto_makeapi extends CModule
      */
     public function uninstallDB()
     {
-        require __DIR__ . '/content.php';
+        foreach (new DirectoryIterator(__DIR__ . '/hlblock') as $entry) {
+            if (!$entry->isDot() && $entry->isFile()) {
+                require_once(__DIR__ . '/hlblock/' . $entry->getFilename());
 
-        $content = new Content();
-        $content->deleteDB();
+                $table = new ($entry->getBasename('.php'))();
+                $table->delete();
+            }
+        }
     }
 
     public function installFiles()
     {
+        if (!is_dir(Application::getDocumentRoot() . '/local/routes')) {
+            Directory::createDirectory(Application::getDocumentRoot() . '/local/routes');
+        }
 
+        CopyDirFiles(__DIR__ . '/routes', Application::getDocumentRoot() . '/local/routes');
     }
 
     public function uninstallFiles()
     {
-
+        foreach (new DirectoryIterator(__DIR__ . '/routes') as $entry) {
+            if (!$entry->isDot() && $entry->isFile()) {
+                File::deleteFile(Application::getDocumentRoot() . '/local/routes/' . $entry->getFilename());
+            }
+        }
     }
 
     /**

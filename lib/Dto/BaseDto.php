@@ -14,7 +14,7 @@ class BaseDto implements JsonSerializable
 
         $reflect = new ReflectionClass($this);
 
-        $propertyList = $reflect->getProperties(ReflectionProperty::IS_PRIVATE);
+        $propertyList = $reflect->getProperties(ReflectionProperty::IS_PRIVATE | ReflectionProperty::IS_READONLY);
 
         foreach ($propertyList as $property) {
             $value = $reflect->getProperty($property->name)->getValue($this);
