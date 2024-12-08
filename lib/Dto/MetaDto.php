@@ -1,6 +1,6 @@
 <?php
 
-namespace Alto\MakeApi\Dto\Page;
+namespace Alto\MakeApi\Dto;
 
 use Alto\MakeApi\Dto\BaseDto;
 

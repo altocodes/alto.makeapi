@@ -1,15 +1,17 @@
 <?php
 
-namespace Alto\MakeApi\Service;
+namespace Alto\MakeApi\Service\Iblock;
 
 use Alto\MakeApi\Dto\Iblock\Element\ElementDto;
 use Alto\MakeApi\Dto\Iblock\Element\ElementListDto;
+use Alto\MakeApi\Dto\Iblock\ElementDetailDto;
 use Alto\MakeApi\Dto\Iblock\Property\Items\DirectoryItemDto;
 use Alto\MakeApi\Dto\Iblock\Property\Items\ListItemDto;
 use Alto\MakeApi\Dto\Iblock\Property\PropertyDto;
 use Alto\MakeApi\Dto\Iblock\IblockDto;
 use Alto\MakeApi\Dto\Iblock\Section\SectionListDto;
 use Alto\MakeApi\Dto\ListDto;
+use Alto\MakeApi\Dto\MetaDto;
 use Alto\MakeApi\Dto\PaginationDto;
 use Alto\MakeApi\Dto\UserDto;
 use Alto\MakeApi\Exception\Http\NotFoundException;
@@ -17,6 +19,7 @@ use Alto\MakeApi\Exception\RepositoryException;
 use Alto\MakeApi\Helper\FetcherHelper;
 use Alto\MakeApi\Helper\IblockHelper;
 use Alto\MakeApi\Repository\IblockRepository;
+use Alto\MakeApi\Service\Meta\IblockMetaService;
 use Bitrix\Iblock\PropertyTable;
 use Bitrix\Iblock\SectionTable;
 use Bitrix\Main\Application;
@@ -32,10 +35,11 @@ Loader::includeModule('iblock');
 
 class IblockService
 {
-    const CACHE_TIME = 3600;
+    const CACHE_TIME = 1;
     const CACHE_DIR = '/iblock_repository';
 
     private IblockRepository $repository;
+    private IblockMetaService $meta;
     protected Cache $cache;
     protected $taggedCache;
 
@@ -49,6 +53,9 @@ class IblockService
 
         $this->cache = Cache::createInstance();
         $this->taggedCache = Application::getInstance()->getTaggedCache();
+        $this->meta = IblockMetaService::getInstance();
+
+        $this->meta->setIblockId($this->repository->getIblockId());
     }
 
     /**
@@ -75,7 +82,7 @@ class IblockService
                         } else {
                             $property['ITEMS'] = array_map(function ($e) {
                                 if ($e['UF_FILE']) {
-                                    $e['UF_FILE'] = FetcherHelper::getById($e['UF_FILE']);
+                                    $e['UF_FILE'] = FetcherHelper::getFileById($e['UF_FILE']);
                                 }
 
                                 return DirectoryItemDto::fromArray($e);
@@ -138,11 +145,11 @@ class IblockService
             foreach ($elements as &$element) {
 
                 $element['PREVIEW_PICTURE'] = $element['PREVIEW_PICTURE']
-                    ? FetcherHelper::getById($element['PREVIEW_PICTURE'])
+                    ? FetcherHelper::getFileById($element['PREVIEW_PICTURE'])
                     : null;
 
                 $element['DETAIL_PICTURE'] = $element['DETAIL_PICTURE']
-                    ? FetcherHelper::getById($element['DETAIL_PICTURE'])
+                    ? FetcherHelper::getFileById($element['DETAIL_PICTURE'])
                     : null;
 
 
@@ -154,7 +161,7 @@ class IblockService
 
                 if ($section = SectionTable::getById($element['IBLOCK_SECTION_ID'])->fetch()) {
                     $section['PICTURE'] = $section['PICTURE']
-                        ? FetcherHelper::getById($section['PICTURE'])
+                        ? FetcherHelper::getFileById($section['PICTURE'])
                         : null;
 
                     $element['IBLOCK_SECTION_ID'] = SectionListDto::fromArray($section);
@@ -190,10 +197,10 @@ class IblockService
     /**
      * Получение элемента по фильтру
      * @param array $filter
-     * @return ElementDto
+     * @return ElementDetailDto
      * @throws \Alto\MakeApi\Exception\Http\BaseHttpException
      */
-    public function getElement(array $filter): ElementDto
+    public function getElement(array $filter): ElementDetailDto
     {
         $cacheKey = md5(__METHOD__ . $this->repository->getIblockId() . serialize($filter));
 
@@ -218,12 +225,14 @@ class IblockService
             $item['MODIFIED_BY'] = UserDto::fromArray($modified_by);
 
             $item['PREVIEW_PICTURE'] = $item['PREVIEW_PICTURE']
-                ? FetcherHelper::getById($item['PREVIEW_PICTURE'])
+                ? FetcherHelper::getFileById($item['PREVIEW_PICTURE'])
                 : null;
 
             $item['DETAIL_PICTURE'] = $item['DETAIL_PICTURE']
-                ? FetcherHelper::getById($item['DETAIL_PICTURE'])
+                ? FetcherHelper::getFileById($item['DETAIL_PICTURE'])
                 : null;
+
+            $item['DETAIL_PAGE_URL'] = FetcherHelper::getElementPageUrl($this->repository->getEntity()->getIblock()->fillDetailPageUrl(), $item);
 
             foreach ($item['PROPERTIES'] as $code => $value) {
                 if ($property = $this->repository->getProperty($code)) {
@@ -236,16 +245,21 @@ class IblockService
             $this->cache->endDataCache($item);
         }
 
-        return ElementDto::fromArray($item);
+        $meta = $this->meta->getForElement($item['ID'], $item['DETAIL_PAGE_URL']);
+
+        return new ElementDetailDto(
+            ElementDto::fromArray($item),
+            $meta
+        );
     }
 
     /**
      * Получение элемента по ID
      * @param int $id
-     * @return ElementDto
+     * @return ElementDetailDto
      * @throws \Alto\MakeApi\Exception\Http\BaseHttpException
      */
-    public function getElementById(int $id): ElementDto
+    public function getElementById(int $id): ElementDetailDto
     {
         return $this->getElement(['ID' => $id]);
     }
@@ -253,10 +267,10 @@ class IblockService
     /**
      * Получение элемента по коду
      * @param string $code
-     * @return ElementDto
+     * @return ElementDetailDto
      * @throws \Alto\MakeApi\Exception\Http\BaseHttpException
      */
-    public function getElementByCode(string $code): ElementDto
+    public function getElementByCode(string $code): ElementDetailDto
     {
         return $this->getElement(['CODE' => $code]);
     }

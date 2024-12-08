@@ -1,0 +1,2 @@
+<?php
+$MESS["ALTO_MAKEAPI_SERVICE_EXCEPTION_SECTION_NOT_FOUND"] = "Раздел не найден";

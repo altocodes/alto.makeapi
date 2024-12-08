@@ -29,6 +29,11 @@ class QueryBuilder
         $this->entity = $entity;
     }
 
+    public function getEntity(): Entity
+    {
+        return $this->entity;
+    }
+
     /**
      * Установка параметров для запроса
      * @param array $params включает в себя:

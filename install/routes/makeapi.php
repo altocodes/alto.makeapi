@@ -7,6 +7,7 @@ use Bitrix\Main\ModuleManager;
 use Alto\MakeApi\Controller\IblockController;
 use Alto\MakeApi\Controller\IblockSectionController;
 use Alto\MakeApi\Controller\ContentController;
+use Alto\MakeApi\Controller\MetaController;
 
 if (Loader::includeModule('alto.makeapi')) {
 
@@ -21,6 +22,8 @@ if (Loader::includeModule('alto.makeapi')) {
 
             $routes->get('content/{code}', [ContentController::class, 'getByCode']);
             $routes->get('content/pages/{page}', [ContentController::class, 'getByPage']);
+
+            $routes->get('meta', [MetaController::class, 'getForPage']);
 
             $routes->get('version', function () {
                 return ['version' => ModuleManager::getVersion('alto.makeapi')];

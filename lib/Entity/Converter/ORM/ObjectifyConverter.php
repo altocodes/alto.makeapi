@@ -29,11 +29,11 @@ class ObjectifyConverter
                     $value = $value['VALUE'];
                 } elseif (count($value) > 0) {
                     $newValue = [];
-                    foreach ($value as $v) {
-                        if(isset($v['VALUE'])) {
-                            $newValue[] = $v['VALUE'];
+                    foreach ($value as $c => $v) {
+                        if(is_array($v) && isset($v['VALUE'])) {
+                            $newValue[$c] = $v['VALUE'];
                         } else {
-                            $newValue[] = $v;
+                            $newValue[$c] = $v;
                         }
                     }
                     $value = $newValue;

@@ -1,6 +1,6 @@
 <?php
 
-namespace Alto\MakeApi\Service;
+namespace Alto\MakeApi\Service\Iblock;
 
 use Alto\MakeApi\Dto\Iblock\Element\ElementDto;
 use Alto\MakeApi\Dto\Iblock\Element\ElementListDto;
@@ -10,6 +10,7 @@ use Alto\MakeApi\Dto\Iblock\Property\PropertyDto;
 use Alto\MakeApi\Dto\Iblock\IblockDto;
 use Alto\MakeApi\Dto\Iblock\Section\SectionDto;
 use Alto\MakeApi\Dto\Iblock\Section\SectionListDto;
+use Alto\MakeApi\Dto\Iblock\SectionDetailDto;
 use Alto\MakeApi\Dto\ListDto;
 use Alto\MakeApi\Dto\PaginationDto;
 use Alto\MakeApi\Dto\UserDto;
@@ -19,6 +20,8 @@ use Alto\MakeApi\Helper\FetcherHelper;
 use Alto\MakeApi\Helper\IblockHelper;
 use Alto\MakeApi\Repository\IblockRepository;
 use Alto\MakeApi\Repository\IblockSectionRepository;
+use Alto\MakeApi\Service\Meta\IblockMetaService;
+use Alto\MakeApi\Service\Meta\MetaService;
 use Bitrix\Iblock\PropertyTable;
 use Bitrix\Main\Application;
 use Bitrix\Main\ArgumentException;
@@ -37,6 +40,7 @@ class IblockSectionService
     const CACHE_DIR = '/iblock_section_repository';
 
     private IblockSectionRepository $repository;
+    protected IblockMetaService $meta;
     protected Cache $cache;
     protected $taggedCache;
 
@@ -50,6 +54,7 @@ class IblockSectionService
 
         $this->cache = Cache::createInstance();
         $this->taggedCache = Application::getInstance()->getTaggedCache();
+        $this->meta = IblockMetaService::getInstance();
     }
 
     public function getSections(
@@ -68,7 +73,7 @@ class IblockSectionService
 
         foreach ($sections as &$section) {
             $section['PICTURE'] = $section['PICTURE']
-                ? FetcherHelper::getById($section['PICTURE'])
+                ? FetcherHelper::getFileById($section['PICTURE'])
                 : null;
 
             $section = SectionListDto::fromArray($section);
@@ -89,9 +94,12 @@ class IblockSectionService
         return $result;
     }
 
-    public function getSection(array $filter): SectionDto
+    public function getSection(array $filter): SectionDetailDto
     {
-        $data = $this->repository->getSections(['filter' => $filter]);
+        $data = $this->repository->getSections([
+            'select' => ['*', 'IBLOCK.SECTION_PAGE_URL'],
+            'filter' => $filter
+        ]);
 
         $item = reset($data);
         if (!$item) {
@@ -105,22 +113,30 @@ class IblockSectionService
         $item['MODIFIED_BY'] = UserDto::fromArray($modified_by);
 
         $item['PICTURE'] = $item['PICTURE']
-            ? FetcherHelper::getById($item['PICTURE'])
+            ? FetcherHelper::getFileById($item['PICTURE'])
             : null;
 
         $item['DETAIL_PICTURE'] = $item['DETAIL_PICTURE']
-            ? FetcherHelper::getById($item['DETAIL_PICTURE'])
+            ? FetcherHelper::getFileById($item['DETAIL_PICTURE'])
             : null;
 
-        return SectionDto::fromArray($item);
+        $item['URL'] = FetcherHelper::getSectionPageUrl($item['IBLOCK']['SECTION_PAGE_URL'], $item);
+
+        $this->meta->setIblockId($item['IBLOCK_ID']);
+        $meta = $this->meta->getForSection($item['ID'], $item['URL']);
+
+        return new SectionDetailDto(
+            SectionDto::fromArray($item),
+            $meta
+        );
     }
 
     /**
      * Получение информации о разделе по ID
      * @param int $id
-     * @return SectionDto
+     * @return SectionDetailDto
      */
-    public function getSectionById(int $id): SectionDto
+    public function getSectionById(int $id): SectionDetailDto
     {
         return $this->getSection(['ID' => $id]);
     }
@@ -128,9 +144,9 @@ class IblockSectionService
     /**
      * Получение информации о разделе по символьному коду
      * @param string $code
-     * @return SectionDto
+     * @return SectionDetailDto
      */
-    public function getSectionByCode(string $code): SectionDto
+    public function getSectionByCode(string $code): SectionDetailDto
     {
         return $this->getSection(['CODE' => $code]);
     }

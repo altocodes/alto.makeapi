@@ -3,15 +3,11 @@
 namespace Alto\MakeApi\Controller;
 
 use Alto\MakeApi\Dto\Iblock\Section\SectionDto;
+use Alto\MakeApi\Dto\Iblock\SectionDetailDto;
 use Alto\MakeApi\Repository\IblockRepository;
-use Alto\MakeApi\Service\IblockSectionService;
-use Bitrix\Main\ArgumentException;
+use Alto\MakeApi\Service\Iblock\IblockSectionService;
 use Bitrix\Main\Engine\Action;
-use Bitrix\Main\ObjectPropertyException;
-use Bitrix\Main\SystemException;
-use Alto\MakeApi\Dto\Iblock\IblockDto;
 use Alto\MakeApi\Dto\ListDto;
-use Alto\MakeApi\Service\IblockService;
 
 class IblockSectionController extends BaseController
 {
@@ -36,7 +32,7 @@ class IblockSectionController extends BaseController
         return $this->service->getSections($page, $limit, $sort, $order);
     }
 
-    public function sectionAction(): SectionDto
+    public function sectionAction(): SectionDetailDto
     {
         if ($section_code = $this->request->get('section_code')) {
             return $this->service->getSectionByCode($section_code);

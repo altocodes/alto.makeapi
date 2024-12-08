@@ -2,14 +2,16 @@
 
 namespace Alto\MakeApi\Controller;
 
+use Alto\MakeApi\Dto\Iblock\Element\ElementDto;
+use Alto\MakeApi\Dto\Iblock\ElementDetailDto;
 use Alto\MakeApi\Repository\IblockRepository;
+use Alto\MakeApi\Service\Iblock\IblockService;
 use Bitrix\Main\ArgumentException;
 use Bitrix\Main\Engine\Action;
 use Bitrix\Main\ObjectPropertyException;
 use Bitrix\Main\SystemException;
 use Alto\MakeApi\Dto\Iblock\IblockDto;
 use Alto\MakeApi\Dto\ListDto;
-use Alto\MakeApi\Service\IblockService;
 
 class IblockController extends BaseController
 {
@@ -54,13 +56,10 @@ class IblockController extends BaseController
 
     /**
      * Получение информации об элементе
-     * @return ElementDetailDto
-     *
-     * @throws ArgumentException
-     * @throws ObjectPropertyException
-     * @throws SystemException
+     * @return \Alto\MakeApi\Dto\Iblock\ElementDetailDto|void
+     * @throws \Alto\MakeApi\Exception\Http\BaseHttpException
      */
-    public function elementAction()
+    public function elementAction(): ElementDetailDto
     {
         // TODO: валидация
         if ($element_code = $this->request->get('element_code')) {

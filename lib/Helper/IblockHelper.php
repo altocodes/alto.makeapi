@@ -72,7 +72,7 @@ class IblockHelper
         } else {
             switch ($property['PROPERTY_TYPE']) {
                 case PropertyTable::TYPE_FILE:
-                    $value = FetcherHelper::getById((int)$value);
+                    $value = FetcherHelper::getFileById((int)$value);
                     break;
                 case PropertyTable::TYPE_SECTION:
                     if ($section = SectionTable::getById((int)$value)->fetch()) {
@@ -128,7 +128,7 @@ class IblockHelper
                                 foreach ($property['ITEMS'] as $item) {
                                     if ($item['UF_XML_ID'] === $value) {
                                         if ($item['UF_FILE']) {
-                                            $item['UF_FILE'] = FetcherHelper::getById($item['UF_FILE']);
+                                            $item['UF_FILE'] = FetcherHelper::getFileById($item['UF_FILE']);
                                         }
                                         $value = DirectoryValueDto::fromArray($item);
                                     }

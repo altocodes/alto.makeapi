@@ -277,6 +277,36 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ResponseError'
+  /meta:
+    get:
+      tags:
+        - page
+      summary: Получить meta-данные для страницы
+      parameters:
+        - name: page
+          in: query
+          description: URL-страницы (без домена)
+          required: true
+          schema:
+            type: string
+        - name: site
+          in: query
+          description: ID сайта
+          schema:
+            type: string
+      responses:
+        200:
+          description: Успешный запрос
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MetaResponseSuccess'
+        400:
+          description: Некорректный запрос
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResponseError'
 
 components:
   schemas:
@@ -388,7 +418,22 @@ components:
         xml_id:
           type: string
           description: Внешний ID
-
+    Meta:
+      type: object
+      properties:
+        title:
+          type: string
+          description: Заголовок страницы
+        description: 
+          type: string
+          description: Описание страницы
+        robots: 
+          type: string
+          description: Мета-тег robost
+        canonical:
+          type: string
+          description: Каноническая ссылка
+          
     ContentListResponseSuccess:
       type: object
       properties:
@@ -429,7 +474,15 @@ components:
         sort:
           type: integer
           description: Сортировка
-
+    MetaResponseSuccess:
+      type: object
+      properties:
+        status:
+          type: string
+          default: success
+        data:
+          $ref: '#/components/schemas/Meta'
+          
     IblockResponse:
       type: object
       properties:
@@ -694,7 +747,7 @@ components:
               - $ref: '#/components/schemas/PropertyValue'
               - $ref: '#/components/schemas/PropertyElementValue'
               - $ref: '#/components/schemas/PropertyListValue'
-              - $ref: '#/components/schemas/PropertyDicrionaryValue'
+              - $ref: '#/components/schemas/PropertyDirectoryValue'
 
     IblockElementsResponse:
       type: object
@@ -733,7 +786,12 @@ components:
           type: string
           default: success
         data:
-          $ref: '#/components/schemas/Section'
+          type: object
+          properties:
+            section:
+              $ref: '#/components/schemas/Section'
+            meta:
+              $ref: '#/components/schemas/Meta'
     IblockElementResponse:
       type: object
       properties:
@@ -743,8 +801,10 @@ components:
         data:
           type: object
           properties:
-            item:
+            element:
               $ref: '#/components/schemas/IblockElement'
+            meta:
+              $ref: '#/components/schemas/Meta'
 
     IblockElement:
       type: object

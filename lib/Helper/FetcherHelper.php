@@ -15,7 +15,7 @@ class FetcherHelper
      * @param int $id
      * @return BaseDto|null
      */
-    public static function getById(int $id): ?BaseDto
+    public static function getFileById(int $id): ?BaseDto
     {
         $file = FileTable::getById($id)->fetch();
 
@@ -28,6 +28,37 @@ class FetcherHelper
         } else {
             return (new FileFetcher($file))->get();
         }
+    }
 
+    /**
+     * Сборка ссылки на элемент инфоблока
+     * @param $url
+     * @param array $element
+     * @return array|string|string[]|null
+     */
+    public static function getElementPageUrl($url, array $element)
+    {
+        return \CIBlock::ReplaceDetailUrl(
+            $url,
+            $element,
+            false,
+            'E'
+        );
+    }
+
+    /**
+     * Сборка ссылки на раздел инфоблока
+     * @param $url
+     * @param array $section
+     * @return array|string|string[]|null
+     */
+    public static function getSectionPageUrl($url, array $section)
+    {
+        return \CIBlock::ReplaceDetailUrl(
+            $url,
+            $section,
+            false,
+            'S'
+        );
     }
 }
