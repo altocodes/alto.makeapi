@@ -3,9 +3,13 @@
 namespace Alto\MakeApi\Helper;
 
 use Alto\MakeApi\Dto\BaseDto;
+use Alto\MakeApi\Exception\Http\BadRequestException;
 use Alto\MakeApi\Service\Fetcher\FileFetcher;
 use Alto\MakeApi\Service\Fetcher\ImageFetcher;
+use Bitrix\Main\Context;
 use Bitrix\Main\FileTable;
+use Bitrix\Main\IO\File;
+use Bitrix\Main\Localization\Loc;
 use Bitrix\Main\Web\MimeType;
 
 class FetcherHelper
@@ -60,5 +64,34 @@ class FetcherHelper
             false,
             'S'
         );
+    }
+
+    /**
+     * Получение меню из файла
+     * @param string $type
+     * @return array|false|void
+     */
+    public static function getMenu(string $type)
+    {
+        $rootDir = Context::getCurrent()->getServer()->getDocumentRoot();
+
+        $fileMenu = $rootDir . '/.' . $type . '.menu_ext.php';
+        if (!File::isFileExists($fileMenu)) {
+            $fileMenu = $rootDir . '/.' . $type . '.menu.php';
+
+            if (!File::isFileExists($fileMenu)) {
+                return false;
+            }
+        }
+
+        try {
+            include ($fileMenu);
+
+            if (isset($aMenuLinks) && is_array($aMenuLinks)) {
+                return $aMenuLinks;
+            }
+        } catch (\Exception $e) {
+            BadRequestException::create(Loc::getMessage('ALTO_MAKEAPI_HELPRT_EXCEPTION_MENU_NOT_INIT'));
+        }
     }
 }

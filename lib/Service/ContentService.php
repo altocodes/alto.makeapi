@@ -5,6 +5,7 @@ namespace Alto\MakeApi\Service;
 use Alto\MakeApi\Dto\Page\ContentDto;
 use Alto\MakeApi\Exception\Http\NotFoundException;
 use Alto\MakeApi\Orm\ContentTable;
+use Bitrix\Main\Localization\Loc;
 use CFile;
 
 class ContentService
@@ -31,7 +32,7 @@ class ContentService
             return $this->prepareContent($content);
         }
 
-        throw NotFoundException::create('Контент не найден');
+        throw NotFoundException::create(Loc::getMessage('ALTO_MAKEAPI_SERVICE_EXCEPTION_CONTENT_NOT_FOUND'));
     }
 
     public function getByPage(string $page): array

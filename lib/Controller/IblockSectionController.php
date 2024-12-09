@@ -2,7 +2,6 @@
 
 namespace Alto\MakeApi\Controller;
 
-use Alto\MakeApi\Dto\Iblock\Section\SectionDto;
 use Alto\MakeApi\Dto\Iblock\SectionDetailDto;
 use Alto\MakeApi\Repository\IblockRepository;
 use Alto\MakeApi\Service\Iblock\IblockSectionService;

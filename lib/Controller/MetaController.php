@@ -2,7 +2,6 @@
 
 namespace Alto\MakeApi\Controller;
 
-use Alto\MakeApi\Service\ContentService;
 use Alto\MakeApi\Service\Meta\MetaService;
 use Bitrix\Main\Context;
 use Bitrix\Main\Engine\Action;

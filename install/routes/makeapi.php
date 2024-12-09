@@ -8,6 +8,7 @@ use Alto\MakeApi\Controller\IblockController;
 use Alto\MakeApi\Controller\IblockSectionController;
 use Alto\MakeApi\Controller\ContentController;
 use Alto\MakeApi\Controller\MetaController;
+use Alto\MakeApi\Controller\MenuController;
 
 if (Loader::includeModule('alto.makeapi')) {
 
@@ -24,6 +25,7 @@ if (Loader::includeModule('alto.makeapi')) {
             $routes->get('content/pages/{page}', [ContentController::class, 'getByPage']);
 
             $routes->get('meta', [MetaController::class, 'getForPage']);
+            $routes->get('menu', [MenuController::class, 'get']);
 
             $routes->get('version', function () {
                 return ['version' => ModuleManager::getVersion('alto.makeapi')];

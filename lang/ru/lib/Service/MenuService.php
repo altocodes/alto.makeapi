@@ -1,0 +1,2 @@
+<?php
+$MESS["ALTO_MAKEAPI_SERVICE_EXCEPTION_MENU_NOT_FOUND"] = "Меню не найдено";

@@ -2,12 +2,6 @@
 
 namespace Alto\MakeApi\Service\Iblock;
 
-use Alto\MakeApi\Dto\Iblock\Element\ElementDto;
-use Alto\MakeApi\Dto\Iblock\Element\ElementListDto;
-use Alto\MakeApi\Dto\Iblock\Property\Items\DirectoryItemDto;
-use Alto\MakeApi\Dto\Iblock\Property\Items\ListItemDto;
-use Alto\MakeApi\Dto\Iblock\Property\PropertyDto;
-use Alto\MakeApi\Dto\Iblock\IblockDto;
 use Alto\MakeApi\Dto\Iblock\Section\SectionDto;
 use Alto\MakeApi\Dto\Iblock\Section\SectionListDto;
 use Alto\MakeApi\Dto\Iblock\SectionDetailDto;
@@ -17,19 +11,13 @@ use Alto\MakeApi\Dto\UserDto;
 use Alto\MakeApi\Exception\Http\NotFoundException;
 use Alto\MakeApi\Exception\RepositoryException;
 use Alto\MakeApi\Helper\FetcherHelper;
-use Alto\MakeApi\Helper\IblockHelper;
 use Alto\MakeApi\Repository\IblockRepository;
 use Alto\MakeApi\Repository\IblockSectionRepository;
 use Alto\MakeApi\Service\Meta\IblockMetaService;
-use Alto\MakeApi\Service\Meta\MetaService;
-use Bitrix\Iblock\PropertyTable;
 use Bitrix\Main\Application;
-use Bitrix\Main\ArgumentException;
 use Bitrix\Main\Data\Cache;
 use Bitrix\Main\Loader;
 use Bitrix\Main\Localization\Loc;
-use Bitrix\Main\ObjectPropertyException;
-use Bitrix\Main\SystemException;
 use Bitrix\Main\UserTable;
 
 Loader::includeModule('iblock');

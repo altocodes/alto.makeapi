@@ -11,7 +11,6 @@ use Alto\MakeApi\Dto\Iblock\Property\PropertyDto;
 use Alto\MakeApi\Dto\Iblock\IblockDto;
 use Alto\MakeApi\Dto\Iblock\Section\SectionListDto;
 use Alto\MakeApi\Dto\ListDto;
-use Alto\MakeApi\Dto\MetaDto;
 use Alto\MakeApi\Dto\PaginationDto;
 use Alto\MakeApi\Dto\UserDto;
 use Alto\MakeApi\Exception\Http\NotFoundException;

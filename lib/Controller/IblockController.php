@@ -2,7 +2,6 @@
 
 namespace Alto\MakeApi\Controller;
 
-use Alto\MakeApi\Dto\Iblock\Element\ElementDto;
 use Alto\MakeApi\Dto\Iblock\ElementDetailDto;
 use Alto\MakeApi\Repository\IblockRepository;
 use Alto\MakeApi\Service\Iblock\IblockService;

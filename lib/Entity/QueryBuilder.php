@@ -5,7 +5,6 @@ namespace Alto\MakeApi\Entity;
 use Alto\MakeApi\Entity\Converter\ORM\FieldConverter;
 use Alto\MakeApi\Entity\Converter\ORM\FilterConverter;
 use Alto\MakeApi\Entity\Converter\ORM\ObjectifyConverter;
-use Bitrix\Iblock\IblockTable;
 use Bitrix\Main\ORM\Entity;
 use Bitrix\Main\ORM\Query\Query;
 use Bitrix\Main\UI\PageNavigation;

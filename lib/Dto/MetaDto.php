@@ -2,8 +2,6 @@
 
 namespace Alto\MakeApi\Dto;
 
-use Alto\MakeApi\Dto\BaseDto;
-
 class MetaDto extends BaseDto
 {
     public readonly string $title;
