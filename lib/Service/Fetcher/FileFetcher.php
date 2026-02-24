@@ -2,7 +2,7 @@
 
 namespace Alto\MakeApi\Service\Fetcher;
 
-use Alto\MakeApi\Dto\Iblock\FileDto;
+use Alto\MakeApi\Dto\Entity\Iblock\FileDto;
 
 /**
  * Получение ссылки на файл

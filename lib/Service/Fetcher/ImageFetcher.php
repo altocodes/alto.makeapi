@@ -2,7 +2,7 @@
 
 namespace Alto\MakeApi\Service\Fetcher;
 
-use Alto\MakeApi\Dto\Iblock\PictureDto;
+use Alto\MakeApi\Dto\Entity\Iblock\PictureDto;
 
 /**
  * Получение ссылок на изображения
@@ -21,8 +21,18 @@ class ImageFetcher extends BaseFetcher
 
     public function get(): ?PictureDto
     {
-        $desktopFileSrc = \CFile::ResizeImageGet($this->file['ID'], $this->desktopImageSize)['src'] ?? null;
-        $mobileFileSrc = \CFile::ResizeImageGet($this->file['ID'], $this->mobileImageSize)['src'] ?? null;
+        // TODO: оргинизовать страницу настроек модуля, чтобы управлять ресайзом изображений
+        if (false) {
+            $desktopFileSrc = \CFile::ResizeImageGet($this->file['ID'], $this->desktopImageSize)['src'] ?? null;
+            $mobileFileSrc = \CFile::ResizeImageGet($this->file['ID'], $this->mobileImageSize)['src'] ?? null;
+        } else {
+            $file = \CFile::GetFileArray($this->file['ID']);
+            $desktopFileSrc = $file['SRC'] ?? null;
+            $mobileFileSrc = $file['SRC'] ?? null;
+        }
+
+
+
 
         return new PictureDto(
             $this->file['ID'],

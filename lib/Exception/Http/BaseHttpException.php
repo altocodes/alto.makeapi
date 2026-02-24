@@ -5,6 +5,7 @@ namespace Alto\MakeApi\Exception\Http;
 use Alto\MakeApi\Enum\HttpStatus;
 use Exception;
 use Throwable;
+use OpenApi\Attributes as OA;
 
 class BaseHttpException extends Exception
 {
@@ -28,7 +29,8 @@ class BaseHttpException extends Exception
         ?array      $errorDetails = null,
         ?HttpStatus $httpStatus = null,
         ?Throwable  $previous = null
-    ): self {
+    ): self
+    {
         $e = new static($errorMessage, 0, $previous);
 
         if ($errorCode) {

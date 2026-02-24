@@ -2,12 +2,12 @@
 
 namespace Alto\MakeApi\Service\Iblock;
 
-use Alto\MakeApi\Dto\Iblock\Section\SectionDto;
-use Alto\MakeApi\Dto\Iblock\Section\SectionListDto;
-use Alto\MakeApi\Dto\Iblock\SectionDetailDto;
-use Alto\MakeApi\Dto\ListDto;
-use Alto\MakeApi\Dto\PaginationDto;
-use Alto\MakeApi\Dto\UserDto;
+use Alto\MakeApi\Dto\Entity\Iblock\Section\SectionDto;
+use Alto\MakeApi\Dto\Entity\Iblock\Section\SectionListDto;
+use Alto\MakeApi\Dto\Entity\Iblock\SectionDetailDto;
+use Alto\MakeApi\Dto\Entity\ListDto;
+use Alto\MakeApi\Dto\Entity\PaginationDto;
+use Alto\MakeApi\Dto\Entity\UserDto;
 use Alto\MakeApi\Exception\Http\NotFoundException;
 use Alto\MakeApi\Exception\RepositoryException;
 use Alto\MakeApi\Helper\FetcherHelper;
@@ -19,6 +19,7 @@ use Bitrix\Main\Data\Cache;
 use Bitrix\Main\Loader;
 use Bitrix\Main\Localization\Loc;
 use Bitrix\Main\UserTable;
+use OpenApi\Attributes as OA;
 
 Loader::includeModule('iblock');
 
@@ -45,6 +46,37 @@ class IblockSectionService
         $this->meta = IblockMetaService::getInstance();
     }
 
+    #[OA\Schema(
+        schema: "SectionListResponse",
+        properties: [
+            new OA\Property(
+                property: "status",
+                type: "string",
+                example: "success"
+            ),
+            new OA\Property(
+                property: "data",
+                properties: [
+                    new OA\Property(
+                        property: "pagination",
+                        ref: "#/components/schemas/PaginationDto"
+                    ),
+                    new OA\Property(
+                        property: "items",
+                        type: "array",
+                        items: new OA\Items(ref: "#/components/schemas/SectionListDto")
+                    )
+                ],
+                type: "object"
+            ),
+            new OA\Property(
+                property: "errors",
+                type: "array",
+                items: new OA\Items(type: "string"),
+                example: []
+            )
+        ]
+    )]
     public function getSections(
         int $page = 0,
         int $limit = 10,
@@ -82,6 +114,26 @@ class IblockSectionService
         return $result;
     }
 
+    #[OA\Schema(
+        schema: "SectionDetailResponse",
+        properties: [
+            new OA\Property(
+                property: "status",
+                type: "string",
+                example: "success"
+            ),
+            new OA\Property(
+                property: "data",
+                ref: "#/components/schemas/SectionDetailDto"
+            ),
+            new OA\Property(
+                property: "errors",
+                type: "array",
+                items: new OA\Items(type: "string"),
+                example: []
+            )
+        ]
+    )]
     public function getSection(array $filter): SectionDetailDto
     {
         $data = $this->repository->getSections([

@@ -40,6 +40,15 @@ RewriteRule ^(.*)$ /bitrix/routing_index.php [L]
 ]
 ```
 
+Скопировать папку и файлы в /local/
+```angular2html
+TODO: автоматизировать
+./swagger
+./composer.json
+./composer.lock
+```
+
+Установить пакеты из composer
 
 # Ограничения использования
 

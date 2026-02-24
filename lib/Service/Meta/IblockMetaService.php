@@ -2,13 +2,15 @@
 
 namespace Alto\MakeApi\Service\Meta;
 
-use Alto\MakeApi\Dto\MetaDto;
+use Alto\MakeApi\Dto\Entity\MetaDto;
 use Alto\MakeApi\Enum\HttpStatus;
+use Bitrix\Iblock\InheritedProperty\IblockValues;
 use Alto\MakeApi\Exception\Iblock\IblockException;
 use Bitrix\Iblock\InheritedProperty\ElementValues;
 use Bitrix\Iblock\InheritedProperty\SectionValues;
 use Bitrix\Main\Data\Cache;
 use Bitrix\Main\Loader;
+use Bitrix\Iblock\ElementTable;
 
 class IblockMetaService extends MetaService
 {
@@ -74,7 +76,7 @@ class IblockMetaService extends MetaService
      * @param string $url
      * @return MetaDto
      */
-    public function getForElement(int $id, string $url = ''): MetaDto
+    public function getForElement(int $id, string $robots = '', string $url = ''): MetaDto
     {
         $page = !empty($url) ? $this->getSettingsByUrls([$url, self::DEFAULT_SETTINGS_PAGE_VALUE]) : [];
 
@@ -85,9 +87,19 @@ class IblockMetaService extends MetaService
             $element = $cache->getVars();
         } else {
             $values = (new ElementValues($this->iblockId, $id))->getValues();
+
+            // Получаем данные элемента для подстановки по умолчанию
+            $elementData = $this->getElementData($id);
+            
+            // Если у элемента отсутствует заполненный SEO, берем поля NAME и PREVIEW_TEXT элемента (очистив предварительно)
             $element = [
-                'TITLE' => $values['ELEMENT_META_TITLE'] ?? '',
-                'DESCRIPTION' => $values['ELEMENT_META_DESCRIPTION'] ?? '',
+                'TITLE' => $values['ELEMENT_META_TITLE'] ?? $elementData['NAME'] ?? '',
+                'DESCRIPTION' => !empty($values['ELEMENT_META_DESCRIPTION']) 
+                    ? $values['ELEMENT_META_DESCRIPTION'] 
+                    : (!empty($elementData['PREVIEW_TEXT']) 
+                        ? trim(preg_replace('/\s+/', ' ', strip_tags($elementData['PREVIEW_TEXT'])))
+                        : ''),
+                'ROBOTS' => !empty($robots) ? $robots : 'index, follow',
                 'CANONICAL' => $url
             ];
 
@@ -99,5 +111,83 @@ class IblockMetaService extends MetaService
             $element,
             $page[$url] ?? [],
         ]);
+    }
+
+    /**
+     * Получение meta-данных для инфоблока
+     */
+    public function getForIblock(): MetaDto
+    {
+        $cache = Cache::createInstance();
+        $cacheId = 'iblock_' . $this->iblockId;
+
+        if ($cache->initCache(self::CACHE_TIME, $cacheId, self::CACHE_DIR)) {
+            $iblockMeta = $cache->getVars();
+        } else {
+            // Правильный способ получения SEO-данных инфоблока
+            $iblockValues = new IblockValues($this->iblockId);
+            $values = $iblockValues->getValues();
+            
+            $iblockMeta = [
+                'TITLE' => $values['IBLOCK_META_TITLE'] ?? '',
+                'DESCRIPTION' => $values['IBLOCK_META_DESCRIPTION'] ?? '',
+                'KEYWORDS' => $values['IBLOCK_META_KEYWORDS'] ?? '',
+                'PAGE_TITLE' => $values['IBLOCK_PAGE_TITLE'] ?? 'Каталог'
+            ];
+
+            $cache->endDataCache($iblockMeta);
+        }
+
+        // Получаем настройки для страницы каталога
+        $pageSettings = $this->getSettingsByUrls(['/catalog/', self::DEFAULT_SETTINGS_PAGE_VALUE]);
+
+        return $this->resolveSettings([
+            $pageSettings[self::DEFAULT_SETTINGS_PAGE_VALUE] ?? [],
+            $iblockMeta,
+            $pageSettings['/catalog/'] ?? [],
+        ]);
+    }
+
+    /**
+     * Получение данных элемента
+     * @param int $id
+     * @return array
+     * @throws \Bitrix\Main\ArgumentException
+     * @throws \Bitrix\Main\ObjectPropertyException
+     * @throws \Bitrix\Main\SystemException
+     */
+    private function getElementData(int $id): array
+    {
+        $cache = Cache::createInstance();
+        $cacheId = 'element_data_' . $this->iblockId . '_' . $id;
+        
+        if ($cache->initCache(self::CACHE_TIME, $cacheId, self::CACHE_DIR)) {
+            return $cache->getVars();
+        }
+        
+        $element = ElementTable::getList([
+            'select' => [
+                'ID',
+                'NAME',
+                'PREVIEW_TEXT',
+                'IBLOCK_ID',
+                'IBLOCK_SECTION_ID'
+            ],
+            'filter' => [
+                'ID' => $id,
+                'IBLOCK_ID' => $this->iblockId,
+            ],
+            'cache' => [
+                'ttl' => self::CACHE_TIME
+            ]
+        ])->fetch();
+        
+        if ($element) {
+            $cache->startDataCache();
+            $cache->endDataCache($element);
+            return $element;
+        }
+        
+        return [];
     }
 }

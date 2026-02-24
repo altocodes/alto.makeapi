@@ -3,6 +3,7 @@
 namespace Alto\MakeApi\Repository;
 
 
+use Alto\MakeApi\Entity\Converter\ORM\FilterConverter;
 use Alto\MakeApi\Entity\QueryBuilder;
 use Alto\MakeApi\Exception\RepositoryException;
 use Alto\MakeApi\Helper\IblockHelper;
@@ -63,7 +64,7 @@ class IblockRepository extends QueryBuilder
 
     /**
      * Получение списка элементов по параметрам
-     * TODO: не выбирать все поля, а только нужные
+     *
      * @param array $params
      * @return array
      * @throws ArgumentException
@@ -74,15 +75,21 @@ class IblockRepository extends QueryBuilder
     {
         if (!isset($params['select'])) {
             $params['select'] = ['*'];
-            foreach (array_keys($this->properties) as $key) {
-                $params['select'][] = 'PROPERTY_' . $key;
+        }
+
+        if (!empty($params['properties'])) {
+            foreach ($params['properties'] as $propertyCode) {
+                $propertyCode = strtoupper($propertyCode);
+                if (isset($this->properties[$propertyCode]) && !in_array($propertyCode, $params['select'])) {
+                    $params['select'][] = $propertyCode;
+                }
             }
         }
 
         $this->setParams($params);
 
-        if ($params['limit']) {
-            $this->setNavigation($params['limit'], $params['offset'] ?? 1);
+        if (isset($params['limit'])) {
+            $this->setNavigation($params['limit'], $params['page'] ?? 1);
         }
 
         return $this->getResult();
@@ -93,9 +100,12 @@ class IblockRepository extends QueryBuilder
         $result = parent::getResult();
 
         foreach ($result as &$element) {
+            $properties = [];
             foreach ($element['PROPERTIES'] as $code => $value) {
-                $element['PROPERTIES'][$code] = IblockHelper::parseValue($this->properties[$code], $value);
+                $lowerCode = strtolower($code);
+                $properties[$lowerCode] = IblockHelper::parseValue($this->properties[$code], $value);
             }
+            $element['PROPERTIES'] = $properties;
         }
         unset($element);
 
@@ -202,6 +212,7 @@ class IblockRepository extends QueryBuilder
     public static function factory(string $code): self
     {
         $iblock = IblockHelper::getIblockByCode($code, ['API_CODE']);
+
         if (!$iblock) {
             throw new RepositoryException(Loc::getMessage('ALTO_MAKEAPI_REPOSITORY_EXCEPTION_NOT_FOUND_IBLOCK', ['#CODE#' => $code]));
         }
@@ -213,4 +224,96 @@ class IblockRepository extends QueryBuilder
         return new self($iblock['API_CODE']);
     }
 
+    /**
+     * Добавление элемента в инфоблок
+     *
+     * @param array $fields основные поля элемента
+     * @param array $properties значения свойств
+     * @return int ID созданного элемента
+     * @throws RepositoryException
+     */
+    public function addElement(array $fields, array $properties = []): int
+    {
+        $element = new \CIBlockElement();
+
+        // Устанавливаем инфоблок по умолчанию из репозитория
+        if (!isset($fields['IBLOCK_ID'])) {
+            $fields['IBLOCK_ID'] = $this->getIblockId();
+        }
+        
+        // Добавляем свойства если они переданы
+        if (!empty($properties)) {
+            $fields['PROPERTY_VALUES'] = $properties;
+        }
+        
+        // Устанавливаем активность по умолчанию
+        if (!isset($fields['ACTIVE'])) {
+            $fields['ACTIVE'] = 'Y';
+        }
+        
+        $elementId = $element->Add($fields);
+        
+        if (!$elementId) {
+            throw new RepositoryException(
+                Loc::getMessage('ALTO_MAKEAPI_REPOSITORY_EXCEPTION_ELEMENT_ADD_ERROR') . 
+                ': ' . $element->LAST_ERROR
+            );
+        }
+        
+        return (int)$elementId;
+    }
+
+
+    /**
+     * Получение ID значения свойства типа список
+     * 
+     * @param string $propertyCode символьный код свойства
+     * @param mixed $value искомое значение
+     * @return int|null
+     */
+    public function getPropertyEnumId(string $propertyCode, ?string $value): ?int
+    {
+        if (!$value) {
+            return null;
+        }
+        
+        $propertyId = $this->getPropertyIdByCode($propertyCode);
+        
+        if (!$propertyId) {
+            return null;
+        }
+        
+        $result = PropertyEnumerationTable::getList([
+            'select' => ['ID'],
+            'filter' => [
+                '=PROPERTY_ID' => $propertyId,
+                '=VALUE' => $value
+            ],
+            'limit' => 1
+        ]);
+        
+        $enum = $result->fetch();
+        
+        return $enum ? (int)$enum['ID'] : null;
+    }
+
+    /**
+     * Получение ID свойства по его коду
+     *
+     * @param string $code
+     * @return int|null
+     */
+    private function getPropertyIdByCode(string $code): ?int
+    {
+        $property = PropertyTable::getList([
+            'select' => ['ID'],
+            'filter' => [
+                '=IBLOCK_ID' => $this->getIblockId(),
+                '=CODE' => $code
+            ],
+            'limit' => 1
+        ])->fetch();
+        
+        return $property ? (int)$property['ID'] : null;
+    }
 }

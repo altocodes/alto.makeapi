@@ -94,4 +94,72 @@ class FetcherHelper
             BadRequestException::create(Loc::getMessage('ALTO_MAKEAPI_HELPRT_EXCEPTION_MENU_NOT_INIT'));
         }
     }
+
+    /**
+     * Массовая загрузка файлов по ID с оптимизацией запросов
+     * @param array $fileIds
+     * @return array [fileId => BaseDto]
+     */
+    public static function getFilesByIds(array $fileIds): array
+    {
+        if (empty($fileIds)) {
+            return [];
+        }
+        
+        // Убираем дубли и сортируем для стабильного ключа кэша
+        $fileIds = array_unique($fileIds);
+        sort($fileIds);
+        
+        $cache = \Bitrix\Main\Data\Cache::createInstance();
+        $cacheKey = 'files_batch_' . md5(implode(',', $fileIds));
+        $cacheDir = '/makeapi/files/batch/';
+        
+        // Пытаемся получить из кэша
+        if ($cache->initCache(3600, $cacheKey, $cacheDir)) {
+            return $cache->getVars();
+        }
+        
+        if (!$cache->startDataCache()) {
+            return [];
+        }
+        
+        // Регистрируем теги кэша
+        $taggedCache = \Bitrix\Main\Application::getInstance()->getTaggedCache();
+        $taggedCache->startTagCache($cacheDir);
+        foreach ($fileIds as $fileId) {
+            $taggedCache->registerTag('file_' . $fileId);
+        }
+        
+        try {
+            $files = [];
+            $result = FileTable::getList([
+                'filter' => ['@ID' => $fileIds],
+                'cache' => ['ttl' => 3600]
+            ]);
+            
+            while ($file = $result->fetch()) {
+                $files[$file['ID']] = $file;
+            }
+            
+            $result = [];
+            foreach ($fileIds as $fileId) {
+                if (isset($files[$fileId])) {
+                    if (MimeType::isImage($files[$fileId]['CONTENT_TYPE'])) {
+                        $result[$fileId] = (new ImageFetcher($files[$fileId]))->get();
+                    } else {
+                        $result[$fileId] = (new FileFetcher($files[$fileId]))->get();
+                    }
+                }
+            }
+            
+            $taggedCache->endTagCache();
+            $cache->endDataCache($result);
+            
+            return $result;
+            
+        } catch (\Exception $e) {
+            $cache->abortDataCache();
+            return [];
+        }
+    }
 }

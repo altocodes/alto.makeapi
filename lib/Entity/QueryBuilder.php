@@ -14,9 +14,8 @@ use Bitrix\Main\UI\PageNavigation;
  */
 class QueryBuilder
 {
-
     protected Entity $entity;
-    private array $params;
+    private array $params = []; // Инициализируем пустым массивом
     private Query $query;
     private PageNavigation $navigation;
 
@@ -39,6 +38,7 @@ class QueryBuilder
      * - select - какие поля выбрать, по умолчанию *
      * - filter - фильтр запроса (where)
      * - sort - параметры сортировки [ID => asc]
+     * - runtime - runtime поля
      * @return void
      */
     public function setParams(array $params)
@@ -57,7 +57,7 @@ class QueryBuilder
     {
         $arData = [];
         $collection = $this->getQuery()->fetchCollection()->getAll();
-
+        
         foreach ($collection as $item) {
             $arData[] = ObjectifyConverter::getValues($item);
         }
@@ -68,18 +68,18 @@ class QueryBuilder
     /**
      * Установка параметров постраничной навигации
      * @param int $limit
-     * @param int $offset
+     * @param int $page
      * @return void
      * @throws \Bitrix\Main\ArgumentException
      * @throws \Bitrix\Main\ObjectPropertyException
      * @throws \Bitrix\Main\SystemException
      */
-    public function setNavigation(int $limit = 10, int $offset = 1)
+    public function setNavigation(int $limit = 10, int $page = 1)
     {
         $this->navigation  = new PageNavigation(get_class($this->entity));
         $this->navigation->allowAllRecords(true)
             ->setPageSize($limit)
-            ->setCurrentPage($offset)
+            ->setCurrentPage($page)
             ->initFromUri();
         $this->navigation->setRecordCount($this->getCount());
     }
@@ -117,6 +117,19 @@ class QueryBuilder
     {
         $this->query = new Query($this->entity);
 
+        // Регистрируем runtime поля
+        if (isset($this->params['runtime'])) {
+            foreach ($this->params['runtime'] as $fieldName => $fieldDefinition) {
+                if ($fieldDefinition instanceof \Bitrix\Main\ORM\Fields\Field) {
+                    // Если это Field объект
+                    $this->query->registerRuntimeField($fieldDefinition);
+                } else {
+                    // Если это массив с определением
+                    $this->query->registerRuntimeField($fieldName, $fieldDefinition);
+                }
+            }
+        }
+
         $this->query->setSelect($this->getSelect());
         $this->query->setOrder($this->getOrder());
         $this->query->setFilter($this->getFilter());
@@ -144,20 +157,43 @@ class QueryBuilder
     /**
      * Получение правильной структуры SELECT
      * @return array|string[]
+     * @throws \Bitrix\Main\SystemException
      */
     protected function getSelect(): array
     {
         $select = ['*'];
 
-        if ($this->params['select']) {
+        if (isset($this->params['select']) && $this->params['select']) {
             $select = [];
             foreach ($this->params['select'] as $alias => $code) {
-                $select[$alias] = FieldConverter::getPropertyCodeBySelect($code);
+                // Обрабатываем как числовые ключи, так и строковые
+                if (is_numeric($alias)) {
+                    $select[] = FieldConverter::getPropertyCodeBySelect($code);
+                } else {
+                    $select[$alias] = FieldConverter::getPropertyCodeBySelect($code);
+                }
             }
         }
 
-        if (!isset($select['ID']) || !in_array('ID', $select)) {
+        // Добавляем ID если его нет
+        if (!in_array('ID', $select)) {
             $select[] = 'ID';
+        }
+
+        // Добавляем свойства инфоблока из фильтров
+        if (isset($this->params['filter']) && is_array($this->params['filter'])) {
+            foreach ($this->params['filter'] as $key => $value) {
+                // Проверяем, начинается ли ключ фильтра с PROPERTY_
+                if (strpos($key, 'PROPERTY_') === 0) {
+                    // Используем FieldConverter для получения кода свойства
+                    $property = FieldConverter::getPropertyCodeBySelect($key);
+                    
+                    // Проверяем, что свойства еще нет в SELECT
+                    if (!in_array($property, $select, true) && !array_key_exists($property, $select)) {
+                        $select[] = $property;
+                    }
+                }
+            }
         }
 
         return $select;
@@ -165,7 +201,7 @@ class QueryBuilder
 
     /**
      * Получение правильной структуры ORDER
-     * @return void
+     * @return array
      * @throws \Bitrix\Main\ArgumentException
      * @throws \Bitrix\Main\SystemException
      */
@@ -174,7 +210,9 @@ class QueryBuilder
         $sort = [];
         if (isset($this->params['sort'])) {
             foreach ($this->params['sort'] as $by => $order) {
-                $by = FieldConverter::getPropertyValueCode($this->query->getInitAlias(), $by);
+                if (isset($this->query)) {
+                    $by = FieldConverter::getPropertyValueCode($this->query->getInitAlias(), $by);
+                }
                 $sort[$by] = $order;
             }
         }
@@ -192,7 +230,12 @@ class QueryBuilder
         $filters = [];
 
         if (isset($this->params['filter'])) {
-            $filters = FilterConverter::getFilter($this->query->getInitAlias(), $this->params['filter']);
+            if (isset($this->query)) {
+                $filters = FilterConverter::getFilter($this->query->getInitAlias(), $this->params['filter'], $this->properties);
+            } else {
+                // Fallback если query еще не создан
+                $filters = $this->params['filter'];
+            }
         }
 
         return $filters;

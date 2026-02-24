@@ -49,6 +49,16 @@ class ObjectifyConverter
             }
         }
 
+        try {
+            // Цена из связи CATALOG_PRICE
+            $catalogPrice = $item->get('CATALOG_PRICE');
+            if ($catalogPrice) {
+                $values['CATALOG_PRICE_PRICE'] = $catalogPrice->getPrice();
+            }
+        } catch (\Exception $e) {
+            $values['CATALOG_PRICE_PRICE'] = 0;
+        }
+
         if (count($properties) > 0) {
             $values['PROPERTIES'] = $properties;
         }

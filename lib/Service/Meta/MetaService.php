@@ -2,10 +2,11 @@
 
 namespace Alto\MakeApi\Service\Meta;
 
-use Alto\MakeApi\Dto\MetaDto;
+use Alto\MakeApi\Dto\Entity\MetaDto;
 use Alto\MakeApi\Orm\MetaPageTable;
 use Bitrix\Main\Context;
 use Bitrix\Main\SiteTable;
+use OpenApi\Attributes as OA;
 
 class MetaService
 {
@@ -29,6 +30,30 @@ class MetaService
         $this->siteId = $siteId;
     }
 
+    #[OA\Schema(
+        schema: "MetaResponse",
+        properties: [
+            new OA\Property(
+                property: "status",
+                description: "Статус ответа",
+                type: "string",
+                example: "success"
+            ),
+            new OA\Property(
+                property: "data",
+                ref: "#/components/schemas/MetaDto",
+                description: "Данные ответа",
+                type: "object",
+                nullable: true
+            ),
+            new OA\Property(
+                property: "errors",
+                description: "Ошибки ответа",
+                type: "array",
+                example: []
+            )
+        ]
+    )]
     /**
      * Получение мета-данных по url страницы
      * @param string $url
