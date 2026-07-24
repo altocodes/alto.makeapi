@@ -1,0 +1,19 @@
+<?php
+
+namespace Alto\MakeApi\Dto\Entity;
+
+use Alto\MakeApi\Dto\BaseDto;
+
+class ListDto extends BaseDto
+{
+    public readonly PaginationDto $pagination;
+    public readonly array $items;
+
+    public function __construct(
+        PaginationDto $pagination,
+        array $items
+    ) {
+        $this->pagination = $pagination;
+        $this->items = $items;
+    }
+}

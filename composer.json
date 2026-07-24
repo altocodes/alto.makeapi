@@ -1,0 +1,6 @@
+{
+    "require": {
+        "zircote/swagger-php": "^5.4",
+        "marwanalsoltany/mighty": "^1.2"
+    }
+}

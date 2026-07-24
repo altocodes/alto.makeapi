@@ -1,0 +1,437 @@
+<?php
+
+namespace Alto\MakeApi\Service\Iblock;
+
+use Alto\MakeApi\Dto\Entity\Iblock\Element\ElementDto;
+use Alto\MakeApi\Dto\Entity\Iblock\Element\ElementListDto;
+use Alto\MakeApi\Dto\Entity\Iblock\ElementDetailDto;
+use Alto\MakeApi\Dto\Entity\Iblock\Property\Items\DirectoryItemDto;
+use Alto\MakeApi\Dto\Entity\Iblock\Property\Items\ListItemDto;
+use Alto\MakeApi\Dto\Entity\Iblock\Property\PropertyDto;
+use Alto\MakeApi\Dto\Entity\Iblock\IblockDto;
+use Alto\MakeApi\Dto\Entity\Iblock\Section\SectionListDto;
+use Alto\MakeApi\Dto\Entity\ListDto;
+use Alto\MakeApi\Dto\Entity\PaginationDto;
+use Alto\MakeApi\Exception\Http\NotFoundException;
+use Alto\MakeApi\Exception\RepositoryException;
+use Alto\MakeApi\Helper\FetcherHelper;
+use Alto\MakeApi\Helper\IblockHelper;
+use Alto\MakeApi\Repository\IblockRepository;
+use Alto\MakeApi\Service\Meta\IblockMetaService;
+use Bitrix\Iblock\PropertyTable;
+use Bitrix\Iblock\SectionTable;
+use Bitrix\Main\Application;
+use Bitrix\Main\ArgumentException;
+use Bitrix\Main\Data\Cache;
+use Bitrix\Main\Loader;
+use Bitrix\Main\Localization\Loc;
+use Bitrix\Main\ObjectPropertyException;
+use Bitrix\Main\SystemException;
+use OpenApi\Attributes as OA;
+
+Loader::includeModule('iblock');
+
+class IblockService
+{
+    const CACHE_TIME = 0;
+    const CACHE_DIR = '/iblock_repository';
+
+    private IblockRepository $repository;
+    private IblockMetaService $meta;
+    protected Cache $cache;
+    protected $taggedCache;
+
+    public function __construct(string $code)
+    {
+        try {
+            $this->repository = IblockRepository::factory($code);
+        } catch (RepositoryException $e) {
+            throw NotFoundException::create($e->getMessage());
+        }
+
+        $this->cache = Cache::createInstance();
+        $this->taggedCache = Application::getInstance()->getTaggedCache();
+        $this->meta = IblockMetaService::getInstance();
+
+        $this->meta->setIblockId($this->repository->getIblockId());
+    }
+
+    /**
+     * Получение информации об инфоблоке
+     *
+     * @return IblockDto
+     */
+    public function getInfo(): IblockDto
+    {
+        $cacheKey = md5(__METHOD__ . $this->repository->getIblockId() . 'getIblock');
+
+        if ($this->cache->initCache(self::CACHE_TIME, $cacheKey, self::CACHE_DIR)) {
+            $result = $this->cache->getVars();
+        } else {
+            $this->cache->startDataCache();
+            $this->taggedCache->startTagCache(self::CACHE_DIR);
+
+            $result = $this->repository->getIblock();
+            if (isset($result['PROPERTIES'])) {
+                foreach ($result['PROPERTIES'] as &$property) {
+                    if (isset($property['ITEMS'])) {
+                        if ($property['PROPERTY_TYPE'] === PropertyTable::TYPE_LIST) {
+                            $property['ITEMS'] = array_map(fn($e): ListItemDto => ListItemDto::fromArray($e), $property['ITEMS']);
+                        } else {
+                            $property['ITEMS'] = array_map(function ($e) {
+                                if ($e['UF_FILE']) {
+                                    $e['UF_FILE'] = FetcherHelper::getFileById($e['UF_FILE']);
+                                }
+
+                                return DirectoryItemDto::fromArray($e);
+                            }, $property['ITEMS']);
+                        }
+                    }
+
+                    $property = PropertyDto::fromArray($property);
+                }
+                unset($property);
+            }
+
+            $this->taggedCache->registerTag('iblock_info_id_' . $this->repository->getIblockId());
+            $this->taggedCache->endTagCache();
+            $this->cache->endDataCache($result);
+        }
+
+        return IblockDto::fromArray($result);
+    }
+
+    #[OA\Schema(
+        schema: "IblockElementsResponse",
+        properties: [
+            new OA\Property(
+                property: "status",
+                description: "Статус ответа",
+                type: "string",
+                example: "success"
+            ),
+            new OA\Property(
+                property: "data",
+                description: "Данные ответа",
+                properties: [
+                    new OA\Property(
+                        property: "pagination",
+                        ref: "#/components/schemas/PaginationDto",
+                        description: "Данные пагинации",
+                        type: "object"
+                    ),
+                    new OA\Property(
+                        property: "items",
+                        description: "Элементы инфоблока",
+                        type: "array",
+                        items: new OA\Items(ref: "#/components/schemas/ElementListDto")
+                    )
+                ],
+                type: "object"
+            ),
+            new OA\Property(
+                property: "errors",
+                description: "Ошибки ответа",
+                type: "array",
+                example: []
+            )
+        ]
+    )]
+    /**
+     * Получение элементов
+     *
+     * @param array $filter
+     * TODO: добавить выбираемые поля
+     * @param int $page
+     * @param int $limit
+     * @param string $sort
+     * @param string $order
+     * @return ListDto
+     * @throws ArgumentException
+     * @throws ObjectPropertyException
+     * @throws SystemException
+     */
+    /**
+     * Активные элементы для файлового меню: минимальные поля и DETAIL_PAGE_URL по шаблону ИБ.
+     *
+     * @return list<array<string, mixed>>
+     * @throws ArgumentException
+     * @throws ObjectPropertyException
+     * @throws SystemException
+     */
+    public function getActiveElementsForMenu(): array
+    {
+        $elements = $this->repository->getElements([
+            'select' => ['NAME', 'CODE', 'ID', 'IBLOCK_ID', 'DETAIL_PAGE_URL'],
+            'filter' => ['ACTIVE' => 'Y'],
+            'sort' => ['SORT' => 'ASC', 'NAME' => 'ASC'],
+        ]);
+
+        $detailUrlTemplate = $this->repository->getEntity()->getIblock()->fillDetailPageUrl();
+
+        foreach ($elements as &$el) {
+            $el['DETAIL_PAGE_URL'] = FetcherHelper::getElementPageUrl($detailUrlTemplate, $el);
+        }
+        unset($el);
+
+        return $elements;
+    }
+
+    public function getList(
+        array $filter = [],
+        int $page = 1,
+        int $limit = 10,
+        string $sort = IblockRepository::SORT_BY_DEFAULT,
+        string $order = IblockRepository::SORT_ORDER_DEFAULT,
+        array $properties = []
+    ): ListDto
+    {
+        $params = [
+            'filter' => IblockHelper::prepareFilter($filter),
+            'limit' => $limit,
+            'page' => $page,
+            'sort' => [$sort => $order],
+            'properties' => $properties
+        ];
+
+        $cacheKey = md5(__METHOD__ . $this->repository->getIblockId() . serialize($params));
+
+        if ($this->cache->initCache(self::CACHE_TIME, $cacheKey, self::CACHE_DIR)) {
+            $result = $this->cache->getVars();
+        } else {
+            $this->cache->startDataCache();
+            $this->taggedCache->startTagCache(self::CACHE_DIR);
+
+            $elements = $this->repository->getElements($params);
+
+            foreach ($elements as &$element) {
+
+                $element['PREVIEW_PICTURE'] = $element['PREVIEW_PICTURE']
+                    ? FetcherHelper::getFileById($element['PREVIEW_PICTURE'])
+                    : null;
+
+                $element['DETAIL_PICTURE'] = $element['DETAIL_PICTURE']
+                    ? FetcherHelper::getFileById($element['DETAIL_PICTURE'])
+                    : null;
+
+
+                foreach ($element['PROPERTIES'] as $code => $value) {
+                    if ($property = $this->repository->getProperty($code)) {
+                        $element['PROPERTIES'][$code] = IblockHelper::parseValue($property, $value);
+                    }
+                }
+
+                if ($section = SectionTable::getById($element['IBLOCK_SECTION_ID'])->fetch()) {
+                    $section['PICTURE'] = $section['PICTURE']
+                        ? FetcherHelper::getFileById($section['PICTURE'])
+                        : null;
+
+                    $element['IBLOCK_SECTION_ID'] = SectionListDto::fromArray($section);
+                }
+
+                if (!$element['IBLOCK_SECTION_ID']) {
+                    unset($element['IBLOCK_SECTION_ID']);
+                }
+
+                $element = ElementListDto::fromArray($element);
+            }
+            unset($element);
+
+            $nav = $this->repository->getNavigation();
+
+            $pagination = new PaginationDto(
+                $nav->getCurrentPage(),
+                $nav->getPageCount(),
+                $nav->getLimit(),
+                $nav->getRecordCount()
+            );
+
+            $result = new ListDto($pagination, $elements);
+
+            $this->taggedCache->registerTag('iblock_elements_id_' . $this->repository->getIblockId());
+            $this->taggedCache->endTagCache();
+            $this->cache->endDataCache($result);
+        }
+
+        return $result;
+    }
+
+    #[OA\Schema(
+        schema: "ElementResponse",
+        properties: [
+            new OA\Property(
+                property: "status",
+                description: "Статус ответа",
+                type: "string",
+                enum: ["success", "error"],
+                example: "success"
+            ),
+            new OA\Property(
+                property: "data",
+                description: "Данные элемента",
+                properties: [
+                    new OA\Property(
+                        property: "element",
+                        ref: "#/components/schemas/ElementDto",
+                        description: "Основные данные элемента"
+                    ),
+                    new OA\Property(
+                        property: "meta",
+                        ref: "#/components/schemas/MetaDto",
+                        description: "Мета-данные элемента"
+                    )
+                ],
+                type: "object"
+            ),
+            new OA\Property(
+                property: "errors",
+                description: "Ошибки ответа",
+                type: "array",
+                items: new OA\Items(type: "string"),
+                example: []
+            )
+        ]
+    )]
+    /**
+     * Получение элемента по фильтру
+     *
+     * @param array $filter
+     * @param array $properties символьные коды свойств для выборки (как в getList); пустой массив — все свойства
+     * @return ElementDetailDto
+     * @throws \Alto\MakeApi\Exception\Http\BaseHttpException
+     */
+    public function getElement(array $filter, array $properties = []): ElementDetailDto
+    {
+        $cacheKey = md5(__METHOD__ . $this->repository->getIblockId() . serialize($filter) . serialize($properties));
+
+        if ($this->cache->initCache(self::CACHE_TIME, $cacheKey, self::CACHE_DIR)) {
+            $item = $this->cache->getVars();
+        } else {
+            $this->cache->startDataCache();
+            $this->taggedCache->startTagCache(self::CACHE_DIR);
+
+            $data = $this->repository->getElements([
+                'filter' => array_merge(['ACTIVE' => 'Y'], $filter),
+                'properties' => $properties,
+            ]);
+
+            $item = reset($data);
+            if (!$item) {
+                throw NotFoundException::create(Loc::getMessage('ALTO_MAKEAPI_SERVICE_EXCEPTION_ELEMENT_NOT_FOUND'));
+            }
+            
+            $item['PREVIEW_PICTURE'] = $item['PREVIEW_PICTURE']
+                ? FetcherHelper::getFileById($item['PREVIEW_PICTURE'])
+                : null;
+
+            $item['DETAIL_PICTURE'] = $item['DETAIL_PICTURE']
+                ? FetcherHelper::getFileById($item['DETAIL_PICTURE'])
+                : null;
+
+            $item['DETAIL_PAGE_URL'] = FetcherHelper::getElementPageUrl($this->repository->getEntity()->getIblock()->fillDetailPageUrl(), $item);
+
+            foreach ($item['PROPERTIES'] as $code => $value) {
+                // Сначала очистим пустые подмассивы (они появляются, если элемент не активен, хотя прикреплен к свойству)
+                if(is_array($item['PROPERTIES'][$code])) {
+                    foreach($item['PROPERTIES'][$code] as $propKey => $propElement) {
+                        if($propElement == null) unset($item['PROPERTIES'][$code][$propKey]);
+                    }
+
+                    // И переиндексируем массив, чтобы ничего не сломать на фронте
+                    $item['PROPERTIES'][$code] = array_values($item['PROPERTIES'][$code]);
+                }
+
+                if ($property = $this->repository->getProperty($code)) {
+                    $item['PROPERTIES'][$code] = IblockHelper::parseValue($property, $value);
+                }
+            }
+
+            $this->taggedCache->registerTag('iblock_element_id_' . $this->repository->getIblockId() . '_' . $item['ID']);
+            $this->taggedCache->endTagCache();
+            $this->cache->endDataCache($item);
+        }
+
+        $meta = $this->meta->getForElement($item['ID']);
+
+        return new ElementDetailDto(
+            ElementDto::fromArray($item),
+            $meta
+        );
+    }
+
+    /**
+     * Получение элемента по ID
+     *
+     * @param int $id
+     * @param array $properties символьные коды свойств (как в getList); пустой массив — все свойства
+     * @return ElementDetailDto
+     * @throws \Alto\MakeApi\Exception\Http\BaseHttpException
+     */
+    public function getElementById(int $id, array $properties = []): ElementDetailDto
+    {
+        return $this->getElement(['ID' => $id], $properties);
+    }
+
+    /**
+     * Получение элемента по коду
+     * @param string $code
+     * @param array $properties
+     * @return ElementDetailDto
+     * @throws \Alto\MakeApi\Exception\Http\BaseHttpException
+     */
+    public function getElementByCode(string $code, array $properties = []): ElementDetailDto
+    {
+        return $this->getElement(['CODE' => $code], $properties);
+    }
+
+    /**
+     * Получение списка уникальных тегов активных элементов инфоблока
+     *
+     * @return array
+     * @throws ArgumentException
+     * @throws ObjectPropertyException
+     * @throws SystemException
+     */
+    public function getTags(): array
+    {
+        $cacheKey = md5(__METHOD__ . $this->repository->getIblockId());
+
+        if ($this->cache->initCache(self::CACHE_TIME, $cacheKey, self::CACHE_DIR)) {
+            $uniqueTags = $this->cache->getVars();
+        } else {
+            $this->cache->startDataCache();
+            $this->taggedCache->startTagCache(self::CACHE_DIR);
+
+            $items = $this->repository->getElements([
+                'filter' => [
+                    'ACTIVE' => 'Y',
+                    '!TAGS' => false
+                ]
+            ]);
+
+            $uniqueTags = [];
+
+            foreach ($items as $item) {
+                if (!empty($item['TAGS'])) {
+                    $itemTags = explode(',', $item['TAGS']);
+                    
+                    foreach ($itemTags as $tag) {
+                        $tag = trim($tag);
+                        if (!empty($tag) && !in_array($tag, $uniqueTags)) {
+                            $uniqueTags[] = $tag;
+                        }
+                    }
+                }
+            }
+
+            // Сортируем по алфавиту
+            sort($uniqueTags);
+
+            $this->taggedCache->registerTag('iblock_tags_id_' . $this->repository->getIblockId());
+            $this->taggedCache->endTagCache();
+            $this->cache->endDataCache($uniqueTags);
+        }
+
+        return $uniqueTags;
+    }
+}
