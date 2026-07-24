@@ -1,0 +1,2 @@
+<?php
+$MESS["ALTO_MAKEAPI_SERVICE_EXCEPTION_CONTENT_NOT_FOUND"] = "Контент не найден";

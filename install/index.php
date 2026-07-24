@@ -1,23 +1,22 @@
 <?php
 
-use Bitrix\Highloadblock\HighloadBlockTable;
+use Alto\MakeApi\UserType\BlockContentProperty;
+use Alto\MakeApi\UserType\ImageHotspotsProperty;
 use Bitrix\Main\Application;
-use Bitrix\Main\DB\SqlQueryException;
-use Bitrix\Main\Entity\Base;
+use Bitrix\Main\EventManager;
 use Bitrix\Main\Loader;
 use Bitrix\Main\LoaderException;
 use Bitrix\Main\Localization\Loc;
 use Bitrix\Main\ModuleManager;
 use Bitrix\Main\NotSupportedException;
 use Bitrix\Main\ORM\Entity;
-use Bitrix\Main\ORM\Fields\IntegerField;
-use Bitrix\Main\ORM\Fields\EnumField;
-use Bitrix\Main\ORM\Fields\DatetimeField;
 use Bitrix\Main\SystemException;
-
-use Alto\MakeApi\Orm\ContentTable;
+use Bitrix\Main\IO\Directory;
+use Bitrix\Main\IO\File;
 
 Loc::loadMessages(__FILE__);
+
+Loader::includeModule('highloadblock');
 
 class alto_makeapi extends CModule
 {
@@ -84,6 +83,7 @@ class alto_makeapi extends CModule
 
             ModuleManager::registerModule($this->MODULE_ID);
             Loader::includeModule($this->MODULE_ID);
+            $this->registerIblockUserType();
             $this->installDB();
         } catch (SystemException $e) {
             if (!$e instanceof NotSupportedException) {
@@ -108,6 +108,7 @@ class alto_makeapi extends CModule
 
         try {
             Loader::includeModule($this->MODULE_ID);
+            $this->unregisterIblockUserType();
             $this->uninstallDB();
         } catch (SystemException|LoaderException $e) {
             $this->app->ThrowException($e->getMessage());
@@ -124,10 +125,14 @@ class alto_makeapi extends CModule
      */
     public function installDB()
     {
-        require __DIR__ . '/content.php';
+        foreach (new DirectoryIterator(__DIR__ . '/hlblock') as $entry) {
+            if (!$entry->isDot() && $entry->isFile()) {
+                require_once(__DIR__ . '/hlblock/' . $entry->getFilename());
 
-        $content = new Content();
-        $content->createDB();
+                $table = new ($entry->getBasename('.php'))();
+                $table->create();
+            }
+        }
     }
 
     /**
@@ -137,20 +142,32 @@ class alto_makeapi extends CModule
      */
     public function uninstallDB()
     {
-        require __DIR__ . '/content.php';
+        foreach (new DirectoryIterator(__DIR__ . '/hlblock') as $entry) {
+            if (!$entry->isDot() && $entry->isFile()) {
+                require_once(__DIR__ . '/hlblock/' . $entry->getFilename());
 
-        $content = new Content();
-        $content->deleteDB();
+                $table = new ($entry->getBasename('.php'))();
+                $table->delete();
+            }
+        }
     }
 
     public function installFiles()
     {
+        if (!is_dir(Application::getDocumentRoot() . '/local/routes')) {
+            Directory::createDirectory(Application::getDocumentRoot() . '/local/routes');
+        }
 
+        CopyDirFiles(__DIR__ . '/routes', Application::getDocumentRoot() . '/local/routes');
     }
 
     public function uninstallFiles()
     {
-
+        foreach (new DirectoryIterator(__DIR__ . '/routes') as $entry) {
+            if (!$entry->isDot() && $entry->isFile()) {
+                File::deleteFile(Application::getDocumentRoot() . '/local/routes/' . $entry->getFilename());
+            }
+        }
     }
 
     /**
@@ -161,5 +178,43 @@ class alto_makeapi extends CModule
     private function isSupportedVersion(): bool
     {
         return CheckVersion(ModuleManager::getVersion('main'), $this->MIN_MODULE_VERSION);
+    }
+
+    private function registerIblockUserType(): void
+    {
+        EventManager::getInstance()->registerEventHandlerCompatible(
+            'iblock',
+            'OnIBlockPropertyBuildList',
+            $this->MODULE_ID,
+            BlockContentProperty::class,
+            'GetUserTypeDescription',
+            500
+        );
+        EventManager::getInstance()->registerEventHandlerCompatible(
+            'iblock',
+            'OnIBlockPropertyBuildList',
+            $this->MODULE_ID,
+            ImageHotspotsProperty::class,
+            'GetUserTypeDescription',
+            490
+        );
+    }
+
+    private function unregisterIblockUserType(): void
+    {
+        EventManager::getInstance()->unRegisterEventHandler(
+            'iblock',
+            'OnIBlockPropertyBuildList',
+            $this->MODULE_ID,
+            BlockContentProperty::class,
+            'GetUserTypeDescription'
+        );
+        EventManager::getInstance()->unRegisterEventHandler(
+            'iblock',
+            'OnIBlockPropertyBuildList',
+            $this->MODULE_ID,
+            ImageHotspotsProperty::class,
+            'GetUserTypeDescription'
+        );
     }
 }
